@@ -9,24 +9,26 @@ The good news: you can get the app onto your phone without owning one.
 
 ---
 
-## Step 0 — Make it compile (free, do this first)
+## Step 0 — Check it still compiles (free, do this first)
 
-The code in this repository has never been compiled. Before you spend a cent on
-Mac access, use the free build that already runs in this repo to shake out
-compile errors.
+Every push builds the app and runs the tests on a GitHub-hosted Mac, so you
+never need Mac access to find out whether the code is sound.
 
 1. Go to your repository on GitHub.
 2. Click the **Actions** tab.
 3. If prompted, click the green button to enable workflows.
 4. Open the most recent **Build** run.
-5. Click the **build** job to read the log.
+5. Click the **Build and test** job to read the log.
 
-Green means the app compiles and the tests pass. Red means there are errors —
-click into the failing step, copy the lines starting with `error:`, and get them
-fixed. Push a change, the build re-runs automatically.
+Green means the app compiles and all tests pass. Red means there are errors —
+use the **Search logs** box at the top right, type `error:`, and it jumps
+straight to them. Fix, push, and the build re-runs by itself.
 
-This costs nothing on a public repository, and it works entirely from Windows.
-Do not move on until this is green.
+As of the latest commit this is **green**: the app builds and all 59 tests
+pass. Confirm that before spending anything on Mac access.
+
+Free on a public repository. On a private repo, macOS runners bill against your
+included minutes at 10x the Linux rate — a few builds a day is fine.
 
 ---
 
