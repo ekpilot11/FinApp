@@ -92,9 +92,9 @@ Xcode opens the project.
 3. Select the **FinApp** target, then the **Signing & Capabilities** tab.
 4. Tick **Automatically manage signing**.
 5. Set **Team** to your name.
-6. Change **Bundle Identifier** from `com.example.FinApp` to something unique
-   to you, e.g. `com.victorcarbone.FinApp`. This must be globally unique across
-   the App Store, so use your own name.
+6. Check the **Bundle Identifier**. It is already set to
+   `com.victorcarbone.FinApp`; change it if that isn't your name, or if Xcode
+   reports it as taken. It must be globally unique across the App Store.
 
 ### A4. Create the app record
 
@@ -154,9 +154,9 @@ machines in an Apple Store (staff are generally fine with this if you ask).
 4. Xcode → **Settings** → **Accounts** → **+**, sign in with your normal Apple
    ID (free is fine).
 5. Click the blue **FinApp** icon → **FinApp** target →
-   **Signing & Capabilities**. Tick **Automatically manage signing**, set
-   **Team** to your name, and change the **Bundle Identifier** to something
-   unique like `com.victorcarbone.FinApp`.
+   **Signing & Capabilities**. Tick **Automatically manage signing** and set
+   **Team** to your name. The **Bundle Identifier** is already
+   `com.victorcarbone.FinApp` — only change it if Xcode complains it is taken.
 6. Plug in your iPhone. Tap **Trust** on the phone. Select it from the device
    menu at the top of the Xcode window.
 7. Press the **▶ Play** button.

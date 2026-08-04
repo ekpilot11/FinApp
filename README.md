@@ -40,8 +40,9 @@ open FinApp.xcodeproj
 Then before you build:
 
 1. Select the **FinApp** target → **Signing & Capabilities**.
-2. Set **Team** to your Apple ID, and change the **Bundle Identifier** from
-   `com.example.FinApp` to something of your own (`com.yourname.FinApp`).
+2. Set **Team** to your Apple ID. The **Bundle Identifier** is already
+   `com.victorcarbone.FinApp` — change it if that isn't you, or if Xcode says
+   it's taken. It must be unique across every app Apple knows about.
 3. Pick your iPhone and hit run.
 
 Voice logging needs a real device — the Simulator has no usable microphone.
@@ -80,8 +81,13 @@ FinApp/
   Views/         SwiftUI screens
 FinAppTests/     Parser and de-duplication tests
 server/          Optional bank-sync server (Node)
+tools/           Icon generator
 docs/            Apple Wallet and bank sync guides
 ```
+
+The app icon is generated, not hand-drawn — `python3 tools/make_icon.py
+FinApp/Assets.xcassets/AppIcon.appiconset/AppIcon.png` redraws it. Edit the
+colours or bar heights at the top of that script.
 
 Built with SwiftUI, SwiftData, Swift Charts, the Speech framework and App
 Intents. No third-party dependencies.

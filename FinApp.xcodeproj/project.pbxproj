@@ -318,6 +318,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = FinApp;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "FinApp uses the microphone so you can log a purchase by speaking it out loud.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "FinApp turns what you say into an expense entry. Speech is transcribed on device whenever your iPhone supports it.";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait";
@@ -326,7 +327,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.FinApp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.victorcarbone.FinApp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -346,6 +347,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = FinApp;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "FinApp uses the microphone so you can log a purchase by speaking it out loud.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "FinApp turns what you say into an expense entry. Speech is transcribed on device whenever your iPhone supports it.";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait";
@@ -354,7 +356,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.FinApp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.victorcarbone.FinApp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -370,7 +372,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.FinAppTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.victorcarbone.FinAppTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
@@ -387,7 +389,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.FinAppTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.victorcarbone.FinAppTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
