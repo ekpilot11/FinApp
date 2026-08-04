@@ -27,6 +27,10 @@ stays on the device unless you choose to connect a bank.
 
 ## Running it
 
+**On Windows, or without a Mac?** See
+[docs/INSTALLING.md](docs/INSTALLING.md) — iOS apps can only be compiled on
+macOS, but you can get this onto your phone without owning one.
+
 Requires **Xcode 16+** and an iPhone on **iOS 17+**.
 
 ```bash

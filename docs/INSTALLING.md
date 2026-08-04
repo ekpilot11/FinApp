@@ -1,0 +1,216 @@
+# Getting FinApp onto your iPhone from a Windows PC
+
+Apple only allows iOS apps to be compiled on macOS. There is no supported way
+to build an iPhone app on Windows — not with a workaround, not with a different
+toolchain. So the question is not *how to avoid a Mac*, it is *how little Mac
+you can get away with*.
+
+The good news: you can get the app onto your phone without owning one.
+
+---
+
+## Step 0 — Make it compile (free, do this first)
+
+The code in this repository has never been compiled. Before you spend a cent on
+Mac access, use the free build that already runs in this repo to shake out
+compile errors.
+
+1. Go to your repository on GitHub.
+2. Click the **Actions** tab.
+3. If prompted, click the green button to enable workflows.
+4. Open the most recent **Build** run.
+5. Click the **build** job to read the log.
+
+Green means the app compiles and the tests pass. Red means there are errors —
+click into the failing step, copy the lines starting with `error:`, and get them
+fixed. Push a change, the build re-runs automatically.
+
+This costs nothing on a public repository, and it works entirely from Windows.
+Do not move on until this is green.
+
+---
+
+## Then pick a path
+
+| | Cost | Mac needed | App lasts | Difficulty |
+|---|---|---|---|---|
+| **A. Cloud Mac + TestFlight** | $99/yr + ~$5 | none | 90 days | Medium |
+| **B. Borrow a Mac** | free | 20 min, once | 7 days | Easy |
+| **C. Buy a used Mac mini** | ~$350 once | you own it | 7 days / 1 yr | Easy |
+| **D. macOS in a VM on Windows** | free | none | — | Don't |
+
+Recommended: **A** if you want it on your phone permanently and never want to
+touch Mac hardware. **C** if you think you will keep building apps.
+
+---
+
+## Path A — Cloud Mac, then TestFlight
+
+You rent a Mac over remote desktop for an hour, upload the app to Apple, and
+then install it on your phone from the TestFlight app. After the first setup,
+your phone gets updates over the air — no cable, no Mac.
+
+**What you need:** an Apple Developer Program membership, **$99/year**
+(apple.com/developer). This is unavoidable for this path; TestFlight is not
+available on a free account.
+
+### A1. Rent the Mac
+
+Providers that rent by the hour include MacinCloud, MacStadium (Orka), and
+Scaleway's Mac minis. Pay-as-you-go is roughly $1/hour — check current pricing,
+it changes.
+
+> **Avoid AWS EC2 Mac instances.** They bill a 24-hour minimum per allocation
+> and work out to tens of dollars for what you need. It's a common trap.
+
+Choose a plan with **Xcode pre-installed** if offered. Xcode is a ~15 GB
+download and installing it yourself will eat an hour of paid time.
+
+You connect with **Remote Desktop Connection**, which is already on Windows
+(press Start, type "Remote Desktop"). The provider gives you an address,
+username and password.
+
+### A2. Get the code onto the Mac
+
+Open the **Terminal** app on the rented Mac and paste:
+
+```bash
+git clone https://github.com/ekpilot11/FinApp.git
+cd FinApp
+open FinApp.xcodeproj
+```
+
+Xcode opens the project.
+
+### A3. Sign in and set an identifier
+
+1. Xcode menu → **Settings** → **Accounts** → **+** → Apple ID. Sign in with
+   the Apple ID that has the Developer Program membership.
+2. In the left sidebar of Xcode, click the blue **FinApp** icon at the top.
+3. Select the **FinApp** target, then the **Signing & Capabilities** tab.
+4. Tick **Automatically manage signing**.
+5. Set **Team** to your name.
+6. Change **Bundle Identifier** from `com.example.FinApp` to something unique
+   to you, e.g. `com.victorcarbone.FinApp`. This must be globally unique across
+   the App Store, so use your own name.
+
+### A4. Create the app record
+
+1. Go to [appstoreconnect.apple.com](https://appstoreconnect.apple.com) in the
+   browser **on the rented Mac**.
+2. **Apps** → **+** → **New App**.
+3. Platform iOS, name "FinApp" (or anything), your language, and pick the
+   **Bundle ID** you just set. SKU can be anything, e.g. `finapp1`.
+
+### A5. Upload
+
+In Xcode:
+
+1. At the top of the window, next to the app name, change the run destination
+   to **Any iOS Device (arm64)**.
+2. Menu **Product** → **Archive**. This takes a few minutes.
+3. When the Organizer window appears, click **Distribute App** →
+   **TestFlight & App Store** → **Distribute**.
+4. Wait for the upload to finish, then you can shut the rented Mac down.
+
+### A6. Install on your phone
+
+1. On your iPhone, install **TestFlight** from the App Store.
+2. Sign in with the same Apple ID.
+3. Back in App Store Connect (any browser, Windows is fine now) → your app →
+   **TestFlight** tab. Wait for the build to finish processing — usually 5–15
+   minutes. You may be asked a question about export compliance; the app uses
+   only standard HTTPS, so the usual answer is that it does not use
+   non-exempt encryption.
+4. Add yourself under **Internal Testing**.
+5. TestFlight on your phone will offer the build. Install it.
+
+**Renewal:** each TestFlight build stops working after 90 days. To refresh,
+rent the Mac for another 20 minutes and repeat A5. If you want to skip even
+that, see "Fully automated" below.
+
+---
+
+## Path B — Borrow a Mac for twenty minutes
+
+Free, and works with a plain Apple ID — no $99. The catch is that the app
+**stops working after 7 days** and you must plug into a Mac again to renew it.
+Fine for trying it out, annoying as a permanent arrangement.
+
+Any Mac works — a friend's, a library's, a university lab, or the display
+machines in an Apple Store (staff are generally fine with this if you ask).
+
+1. Bring your iPhone and its cable.
+2. On the Mac, install **Xcode** from the Mac App Store if it isn't there
+   already. **This is a ~15 GB download** — check before you travel.
+3. Open Terminal and run:
+   ```bash
+   git clone https://github.com/ekpilot11/FinApp.git
+   cd FinApp
+   open FinApp.xcodeproj
+   ```
+4. Xcode → **Settings** → **Accounts** → **+**, sign in with your normal Apple
+   ID (free is fine).
+5. Click the blue **FinApp** icon → **FinApp** target →
+   **Signing & Capabilities**. Tick **Automatically manage signing**, set
+   **Team** to your name, and change the **Bundle Identifier** to something
+   unique like `com.victorcarbone.FinApp`.
+6. Plug in your iPhone. Tap **Trust** on the phone. Select it from the device
+   menu at the top of the Xcode window.
+7. Press the **▶ Play** button.
+8. First run only: the app will fail to launch with an untrusted-developer
+   error. On your iPhone go to **Settings → General → VPN & Device Management**,
+   tap your Apple ID, and tap **Trust**. Press Play in Xcode again.
+
+The app is now on your phone and works offline. After 7 days it refuses to
+launch until you repeat steps 6–7.
+
+---
+
+## Path C — Buy a used Mac
+
+If you expect to keep working on this, a second-hand **Mac mini M1** runs
+around $350 and is more than enough for Xcode. Four years of Path A costs more.
+
+With your own Mac, follow Path B's steps — the app still expires every 7 days
+on a free Apple ID, or lasts a year with the $99 membership.
+
+---
+
+## Path D — Running macOS in a virtual machine on Windows
+
+I'd skip this, for two reasons.
+
+**It breaks Apple's licence.** The macOS software licence agreement permits
+installation only on Apple-branded hardware. Running it in a VM on a Windows PC
+is a violation. That is a fact about the licence, not a technical obstacle.
+
+**More practically, it does not solve your problem.** The whole point is to get
+the app onto your phone, which means the VM has to talk to a physical iPhone
+over USB. USB passthrough to iOS devices is the single most unreliable part of
+these setups — the phone connects, drops mid-transfer, or is never recognised at
+all, and there is no fix you can apply from inside the guest. You would spend an
+evening on a slow, unsupported macOS install and still not be able to install
+the app.
+
+If cost is the concern, Path B is free and takes twenty minutes.
+
+---
+
+## Fully automated (optional, later)
+
+Once the app builds green and you have the $99 membership, the whole
+build-and-upload step can move into GitHub Actions: every push builds the app on
+a GitHub-hosted Mac and uploads it to TestFlight by itself, and your phone
+picks up the new version. No Mac, rented or otherwise, ever again.
+
+It needs an App Store Connect API key and your signing certificate stored as
+repository secrets — worth doing once the basics work, not before.
+
+---
+
+## Which do I do?
+
+1. **Today, free:** get the Actions build green (Step 0).
+2. **To hold it in your hand this week, free:** Path B — borrow a Mac.
+3. **To keep it on your phone for good:** Path A — $99 + an hour of a rented Mac.
