@@ -9,7 +9,11 @@ import Foundation
 enum CategoryClassifier {
 
     /// Merchants specific enough to beat any keyword match.
-    /// Keys are matched as substrings against normalized text.
+    ///
+    /// Matched on word boundaries against normalized text, so a brand name that
+    /// happens to be an English word cannot fire from inside a longer one. A
+    /// brand whose name is a *whole* common word still has to be left out —
+    /// see the notes below.
     private static let brands: [(needle: String, category: ExpenseCategory)] = [
         // Coffee
         ("starbucks", .coffee), ("blue bottle", .coffee), ("dunkin", .coffee),
@@ -35,14 +39,16 @@ enum CategoryClassifier {
 
         // Transport
         ("uber", .transport), ("lyft", .transport), ("bolt", .transport),
-        ("cabify", .transport), ("99 taxi", .transport), ("grab", .transport),
-        ("lime", .transport), ("bird", .transport), ("citi bike", .transport),
+        ("cabify", .transport), ("99 taxi", .transport), ("citi bike", .transport),
+        // No "grab", "lime" or "bird". Each is a whole common word — "grab a
+        // coffee", "bought limes" — and because brands outrank every keyword,
+        // a false match here cannot be recovered from.
         ("mta", .transport), ("tfl", .transport), ("bart", .transport),
         ("amtrak", .transport), ("trainline", .transport), ("sixt", .transport),
 
         // Fuel
         ("shell", .fuel), ("chevron", .fuel), ("exxon", .fuel), ("mobil", .fuel),
-        ("bp ", .fuel), ("texaco", .fuel), ("petrobras", .fuel), ("ipiranga", .fuel),
+        ("bp", .fuel), ("texaco", .fuel), ("petrobras", .fuel), ("ipiranga", .fuel),
         ("repsol", .fuel), ("electrify america", .fuel), ("chargepoint", .fuel),
         ("supercharger", .fuel),
 
@@ -63,7 +69,8 @@ enum CategoryClassifier {
         ("apple store", .shopping),
 
         // Health
-        ("cvs", .health), ("walgreens", .health), ("boots", .health),
+        // No "boots": the UK pharmacy is region-specific, footwear is not.
+        ("cvs", .health), ("walgreens", .health),
         ("rite aid", .health), ("droga raia", .health), ("drogasil", .health),
 
         // Home
@@ -73,13 +80,14 @@ enum CategoryClassifier {
         // Travel
         ("airbnb", .travel), ("booking.com", .travel), ("expedia", .travel),
         ("hotels.com", .travel), ("marriott", .travel), ("hilton", .travel),
-        ("delta air", .travel), ("united air", .travel), ("american airlines", .travel),
+        ("delta air", .travel), ("united airlines", .travel), ("american airlines", .travel),
         ("ryanair", .travel), ("easyjet", .travel), ("lufthansa", .travel),
         ("latam", .travel), ("gol linhas", .travel),
 
         // Entertainment
         ("steam", .entertainment), ("playstation", .entertainment),
-        ("xbox", .entertainment), ("nintendo", .entertainment), ("amc theat", .entertainment),
+        ("xbox", .entertainment), ("nintendo", .entertainment),
+        ("amc theatre", .entertainment), ("amc theater", .entertainment),
         ("cinemark", .entertainment), ("ticketmaster", .entertainment),
 
         // Bills
@@ -111,11 +119,16 @@ enum CategoryClassifier {
         let merchantHaystack = merchant.map(normalize) ?? ""
 
         // 1. A known brand anywhere wins outright.
+        //
+        // Matched on word boundaries, exactly like keywords. A plain substring
+        // search reads "grabbed lunch" as the Grab ride app and "mobile phone
+        // bill" as a Mobil petrol station — and because brands outrank
+        // everything, that wrong answer is final.
         for (needle, category) in brands {
-            if merchantHaystack.contains(needle) { return category }
+            if containsWord(needle, in: merchantHaystack) { return category }
         }
         for (needle, category) in brands {
-            if haystack.contains(needle) { return category }
+            if containsWord(needle, in: haystack) { return category }
         }
 
         // 2. Otherwise the most specific keyword, merchant text first.
@@ -145,27 +158,42 @@ enum CategoryClassifier {
 
         while searchStart < haystack.endIndex,
               let range = haystack.range(of: needle, range: searchStart..<haystack.endIndex) {
-            let beforeOK: Bool
-            if range.lowerBound == haystack.startIndex {
-                beforeOK = true
-            } else {
-                let before = haystack[haystack.index(before: range.lowerBound)]
-                beforeOK = !before.isLetter && !before.isNumber
+            if startsAtBoundary(range.lowerBound, in: haystack),
+               endsAtBoundary(range.upperBound, in: haystack) {
+                return true
             }
-
-            let afterOK: Bool
-            if range.upperBound == haystack.endIndex {
-                afterOK = true
-            } else {
-                let after = haystack[range.upperBound]
-                afterOK = !after.isLetter && !after.isNumber
-            }
-
-            if beforeOK && afterOK { return true }
             searchStart = haystack.index(after: range.lowerBound)
         }
 
         return false
+    }
+
+    private static func startsAtBoundary(_ index: String.Index, in haystack: String) -> Bool {
+        guard index > haystack.startIndex else { return true }
+        let previous = haystack[haystack.index(before: index)]
+        return !previous.isLetter && !previous.isNumber
+    }
+
+    /// A match may run on into a plural "s" or a possessive "'s".
+    ///
+    /// Several brands are listed in stem form because that is what survives
+    /// across spellings — "mcdonald" covers both "McDonald's" and the
+    /// "MCDONALDS" a card statement prints, and "lowe" covers "Lowe's" and
+    /// "LOWES". Demanding a hard boundary would break every one of them.
+    ///
+    /// Nothing else is allowed through, so "grab" still does not fire on
+    /// "grabbed" and "mobil" still does not fire on "mobile".
+    private static func endsAtBoundary(_ index: String.Index, in haystack: String) -> Bool {
+        var cursor = index
+        if cursor < haystack.endIndex, haystack[cursor] == "'" {
+            cursor = haystack.index(after: cursor)
+        }
+        if cursor < haystack.endIndex, haystack[cursor] == "s" {
+            cursor = haystack.index(after: cursor)
+        }
+        guard cursor < haystack.endIndex else { return true }
+        let next = haystack[cursor]
+        return !next.isLetter && !next.isNumber
     }
 
     /// Lowercase, strip diacritics, collapse whitespace. Statement descriptors
