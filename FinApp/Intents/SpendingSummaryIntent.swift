@@ -7,9 +7,9 @@ enum SummaryPeriod: String, AppEnum, CaseIterable {
     case thisWeek
     case thisMonth
 
-    static var typeDisplayRepresentation: TypeDisplayRepresentation {
-        TypeDisplayRepresentation(name: "Period")
-    }
+    // Stored, literal — see the note in ExpenseCategory+AppEnum.swift for why
+    // these cannot be computed.
+    static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Period")
 
     static var caseDisplayRepresentations: [SummaryPeriod: DisplayRepresentation] = [
         .today: DisplayRepresentation(title: "Today"),
