@@ -13,9 +13,9 @@ It exists twice, from one design:
 | **[Web app](docs/WEB.md)** — `web/` | a browser | forever | Safari's dictation | via a Shortcut that opens a link |
 | **iPhone app** — `FinApp/` | Xcode 16 + a Mac, iOS 17+ | 7 days free / 1 year paid | on-device | silently, via an App Intent |
 
-**No Mac? Start with the [web app](docs/WEB.md).** It publishes itself to
-GitHub Pages, installs to the iPhone home screen from Safari, never expires,
-and runs the same parser — the same 15 categories, the same money handling,
+**No Mac? Start with the [web app](docs/WEB.md).** You host it in about a
+minute (GitHub Pages, or Netlify if the repo stays private), install it to the
+iPhone home screen from Safari, and it never expires. It runs the same parser — the same 15 categories, the same money handling,
 the same de-duplication, tested by the same 72 assertions ported across.
 
 ## What it does

@@ -38,13 +38,30 @@ same categories, the same de-duplication, the same 72 tests.
 
 ## 1. Publish it (about five minutes, free)
 
-1. Go to your repository on GitHub.
-2. **Settings** → **Pages** (left sidebar).
-3. Under **Build and deployment** → **Source**, choose **GitHub Actions**.
+It has to be on the public internet with an `https://` address. That is not a
+preference — Safari refuses microphone access to anything else, so a page
+served from your own PC over Wi-Fi cannot do voice.
+
+Pick whichever of these two suits you.
+
+### Option A — GitHub Pages
+
+**This repository is currently private, and GitHub Pages does not work on
+private repositories on a free plan.** So either make it public first, or use
+Option B.
+
+To make it public: **Settings** → **General** → scroll to **Danger Zone** →
+**Change repository visibility** → **Make public**. (There are no passwords or
+keys in this repository — it is app code and documentation.)
+
+Then:
+
+1. **Settings** → **Pages** (left sidebar).
+2. Under **Build and deployment** → **Source**, choose **GitHub Actions**.
    That is the whole configuration.
-4. Go to the **Actions** tab and open the most recent **Web** run. It runs the
+3. Go to the **Actions** tab and open the most recent **Web** run. It runs the
    tests, then publishes.
-5. When it finishes, the run shows the address. It looks like:
+4. When it finishes, the run shows the address:
 
    ```
    https://ekpilot11.github.io/FinApp/
@@ -54,9 +71,24 @@ Every later push to `main` — or to the `claude/…` branch this was built on �
 re-runs the tests and republishes. If the tests fail, nothing is published,
 which is the point.
 
-> If **Pages** is missing from Settings, the repository is private on a free
-> plan. Either make it public (**Settings → General → Danger Zone → Change
-> visibility**) or use the local option at the bottom of this page.
+### Option B — Netlify Drop (keeps the repository private)
+
+Free, takes about a minute, and needs no command line.
+
+1. On your PC, download the repository: the green **Code** button on GitHub →
+   **Download ZIP**. Unzip it.
+2. Go to <https://app.netlify.com/drop>.
+3. Drag the **`web` folder** (not the whole project — just `web`) onto the page.
+4. Netlify gives you an address like `https://cheerful-otter-1a2b3c.netlify.app`.
+   That is your app.
+
+Make a free Netlify account when it offers, otherwise the site is temporary.
+Cloudflare Pages and Vercel work the same way if you prefer one of those.
+
+To update it later, drag the new `web` folder on again. If you would rather
+have it update itself on every push, connect the repository in Netlify with
+publish directory `web` and no build command — it reads private repositories
+on the free plan.
 
 ---
 
@@ -234,5 +266,13 @@ cd web
 npx http-server -p 8080 .
 ```
 
-Then open <http://localhost:8080>. Voice input needs `https://` or
-`localhost`, so this works; opening `index.html` as a file does not.
+Then open <http://localhost:8080>.
+
+Voice works here because browsers treat `localhost` as secure. It will **not**
+work if you open the same server from your phone over Wi-Fi
+(`http://192.168.…`) — that is plain `http`, and Safari gives no microphone to
+plain `http`. For voice on the phone you need a real `https://` address, which
+is what step 1 is for.
+
+Opening `index.html` by double-clicking it does not work either: `file://`
+pages cannot load ES modules.

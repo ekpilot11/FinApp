@@ -56,6 +56,12 @@ jobs:
     if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/claude/'))
     runs-on: ubuntu-latest
 
+    # Publishing is optional, so a failure here must not turn the whole run
+    # red. Until Pages is switched on — and it cannot be switched on for a
+    # private repository on a free plan — this job fails, and the green tick
+    # you actually care about is the Test job above.
+    continue-on-error: true
+
     permissions:
       pages: write
       id-token: write
@@ -75,3 +81,17 @@ jobs:
 
       - id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Explain a failed publish
+        if: failure()
+        run: |
+          echo "Publishing failed. Almost always one of two things:"
+          echo
+          echo "  1. Pages is not switched on yet."
+          echo "     Settings -> Pages -> Build and deployment -> Source: GitHub Actions"
+          echo
+          echo "  2. The repository is private on a free plan, where Pages is"
+          echo "     unavailable. Make it public, or host the web/ folder"
+          echo "     somewhere else — see docs/WEB.md, Option B."
+          echo
+          echo "The tests passed either way; nothing is wrong with the code."
