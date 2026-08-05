@@ -62,7 +62,10 @@ jobs:
     # you actually care about is the Test job above.
     continue-on-error: true
 
+    # Naming any permission sets every unlisted one to `none`, so `contents`
+    # has to be here or actions/checkout cannot read the repository.
     permissions:
+      contents: read
       pages: write
       id-token: write
 
