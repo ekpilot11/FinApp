@@ -7,6 +7,16 @@ you can get away with*.
 
 The good news: you can get the app onto your phone without owning one.
 
+> **Before you spend anything, read this.** There is now a second version of
+> FinApp that runs in the browser and installs to the iPhone home screen
+> straight from Safari — no Mac, no Apple account, no $99, and no seven-day
+> expiry. It is the same parser and the same design; what it gives up is Siri
+> and silent Apple Pay logging. See **[WEB.md](WEB.md)**.
+>
+> This guide is for the native app. It is still the better one if you want
+> Siri and background card logging, and it is the only one that can go on the
+> App Store.
+
 ---
 
 ## Step 0 — Check it still compiles (free, do this first)
@@ -65,8 +75,11 @@ it changes.
 > **Avoid AWS EC2 Mac instances.** They bill a 24-hour minimum per allocation
 > and work out to tens of dollars for what you need. It's a common trap.
 
-Choose a plan with **Xcode pre-installed** if offered. Xcode is a ~15 GB
-download and installing it yourself will eat an hour of paid time.
+Choose a plan with **Xcode pre-installed** if offered. Xcode is a 2.4 GB
+download that expands to roughly 15 GB, and installing it yourself will eat an
+hour of paid time.
+
+Ask for **macOS Sonoma 14.5 or newer**. See "Which Macs can build this" below.
 
 You connect with **Remote Desktop Connection**, which is already on Windows
 (press Start, type "Remote Desktop"). The provider gives you an address,
@@ -142,9 +155,13 @@ Fine for trying it out, annoying as a permanent arrangement.
 Any Mac works — a friend's, a library's, a university lab, or the display
 machines in an Apple Store (staff are generally fine with this if you ask).
 
+**Check the Mac first** — see "Which Macs can build this" below. A Mac that
+cannot run Xcode 16 is a wasted trip.
+
 1. Bring your iPhone and its cable.
 2. On the Mac, install **Xcode** from the Mac App Store if it isn't there
-   already. **This is a ~15 GB download** — check before you travel.
+   already. It is a 2.4 GB download that expands to roughly 15 GB — check
+   before you travel.
 3. Open Terminal and run:
    ```bash
    git clone https://github.com/ekpilot11/FinApp.git
@@ -211,8 +228,33 @@ repository secrets — worth doing once the basics work, not before.
 
 ---
 
+## Which Macs can build this
+
+FinApp needs **iOS 17**, which needs **Xcode 15 or newer**, which needs a
+recent enough macOS. Check the Mac before you travel to it:  → **About This
+Mac**.
+
+| macOS on that Mac | Verdict |
+|---|---|
+| **Sonoma 14.5 or newer** | Works as-is. |
+| **Ventura 13.5 – Sonoma 14.4** | Xcode 15 there has the iOS 17 SDK, so it can build the app — but this project file is in Xcode 16's format and needs converting first. Ask and it will be converted. |
+| **Monterey 12 or older** | Dead end. The newest Xcode for Monterey is 14.2, whose newest SDK is iOS 16.2. |
+
+The macOS version is not a choice — Apple stops shipping new ones for a given
+model. An iMac from 2015, for instance, stops at Monterey and can never build
+this, no matter how much RAM it has.
+
+**If the only Mac you can reach is in that last row, use the
+[web app](WEB.md).** It needs no Mac at all.
+
+---
+
 ## Which do I do?
 
-1. **Today, free:** get the Actions build green (Step 0).
-2. **To hold it in your hand this week, free:** Path B — borrow a Mac.
-3. **To keep it on your phone for good:** Path A — $99 + an hour of a rented Mac.
+1. **Today, free, no Mac ever:** publish the [web app](WEB.md) and add it to
+   your home screen.
+2. **Today, free:** get the Actions build green (Step 0).
+3. **To hold the native app in your hand this week, free:** Path B — borrow a
+   Mac that passes the table above.
+4. **To keep the native app on your phone for good:** Path A — $99 + an hour
+   of a rented Mac.

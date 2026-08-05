@@ -9,9 +9,20 @@ name: Build
 # your included minutes at 10x the Linux rate, so a few builds a day is fine
 # but a tight loop is not.
 
+# Path-filtered so a change to the web version does not spend macOS minutes.
 on:
   push:
+    paths:
+      - 'FinApp/**'
+      - 'FinAppTests/**'
+      - 'FinApp.xcodeproj/**'
+      - '.github/workflows/build.yml'
   pull_request:
+    paths:
+      - 'FinApp/**'
+      - 'FinAppTests/**'
+      - 'FinApp.xcodeproj/**'
+      - '.github/workflows/build.yml'
   workflow_dispatch:
 
 jobs:

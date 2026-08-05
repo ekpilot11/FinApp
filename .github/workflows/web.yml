@@ -1,0 +1,77 @@
+name: Web
+
+# Tests the browser version and publishes it to GitHub Pages.
+#
+# Runs on Linux, needs no Mac and no Apple account, and takes about twenty
+# seconds. Once this is green and Pages is switched on, the app is live at
+# https://<your-username>.github.io/FinApp/ and you install it from Safari.
+
+on:
+  push:
+    paths:
+      - 'web/**'
+      - '.github/workflows/web.yml'
+  pull_request:
+    paths:
+      - 'web/**'
+      - '.github/workflows/web.yml'
+  workflow_dispatch:
+
+# Only one deployment at a time; a newer push supersedes one already queued.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # No dependencies to install: the tests use Node's own test runner and
+      # the app itself is plain ES modules.
+      - name: Run tests
+        working-directory: web
+        run: npm test
+
+      # The date handling is local-time arithmetic, so it has to hold up
+      # somewhere that is not UTC and somewhere with a half-hour offset.
+      - name: Run tests in other time zones
+        working-directory: web
+        run: |
+          for zone in America/Sao_Paulo Pacific/Auckland Asia/Kolkata; do
+            echo "--- $zone"
+            TZ=$zone npm test
+          done
+
+  deploy:
+    name: Publish to GitHub Pages
+    needs: test
+    # Only the branches worth publishing. Add yours here if you work on another.
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/claude/'))
+    runs-on: ubuntu-latest
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

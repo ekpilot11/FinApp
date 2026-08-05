@@ -37,15 +37,22 @@ def clamp(value, low=0.0, high=1.0):
 
 def build_bars():
     """Capsules as (centre x, segment top y, segment bottom y, radius)."""
-    total = len(HEIGHTS) * BAR_WIDTH + (len(HEIGHTS) - 1) * BAR_GAP
+    # The constants above are written in 1024-space; everything scales from
+    # there so the web icons come out identical, just smaller.
+    scale = SIZE / 1024.0
+    bar_width = BAR_WIDTH * scale
+    bar_gap = BAR_GAP * scale
+    max_height = MAX_BAR_HEIGHT * scale
+
+    total = len(HEIGHTS) * bar_width + (len(HEIGHTS) - 1) * bar_gap
     left = (SIZE - total) / 2.0
-    radius = BAR_WIDTH / 2.0
+    radius = bar_width / 2.0
     centre_y = SIZE / 2.0
 
     bars = []
     for index, fraction in enumerate(HEIGHTS):
-        height = MAX_BAR_HEIGHT * fraction
-        cx = left + index * (BAR_WIDTH + BAR_GAP) + radius
+        height = max_height * fraction
+        cx = left + index * (bar_width + bar_gap) + radius
         # Inset the segment by the radius so the caps land on the bar's extent.
         half = max(height / 2.0 - radius, 0.0)
         bars.append((cx, centre_y - half, centre_y + half, radius))
@@ -127,5 +134,7 @@ if __name__ == "__main__":
     import sys
 
     destination = sys.argv[1]
+    if len(sys.argv) > 2:
+        SIZE = int(sys.argv[2])
     write_png(destination, render())
-    print(f"wrote {destination}")
+    print(f"wrote {destination} at {SIZE}x{SIZE}")
