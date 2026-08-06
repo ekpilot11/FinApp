@@ -17,11 +17,6 @@ on:
       - '.github/workflows/web.yml'
   workflow_dispatch:
 
-# Only one deployment at a time; a newer push supersedes one already queued.
-concurrency:
-  group: pages
-  cancel-in-progress: false
-
 jobs:
   test:
     name: Test
@@ -57,10 +52,17 @@ jobs:
     runs-on: ubuntu-latest
 
     # Publishing is optional, so a failure here must not turn the whole run
-    # red. Until Pages is switched on — and it cannot be switched on for a
-    # private repository on a free plan — this job fails, and the green tick
-    # you actually care about is the Test job above.
+    # red. If Pages cannot be switched on, this job fails and the green tick
+    # you actually care about is still the Test job above.
     continue-on-error: true
+
+    # One deployment at a time. Scoped to this job rather than the whole
+    # workflow: a top-level group would make the tests queue behind a
+    # deployment lock they have nothing to do with, and a run held that way
+    # can be cancelled before it is ever given a runner.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
 
     # Naming any permission sets every unlisted one to `none`, so `contents`
     # has to be here or actions/checkout cannot read the repository.
