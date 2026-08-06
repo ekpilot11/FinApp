@@ -76,7 +76,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # `enablement` turns Pages on via the API when it has never been
+      # configured, so nobody has to visit Settings -> Pages by hand. Needs
+      # the `pages: write` permission below, which the deploy needs anyway.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:
