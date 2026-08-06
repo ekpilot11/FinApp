@@ -71,24 +71,30 @@ scroll to **Danger Zone** → **Change repository visibility** → **Make
 public**. There are no passwords or keys in it; it is app code and
 documentation.
 
-### Option B — Netlify Drop (keeps the repository private)
+### Option B — Netlify, connected to the repository
 
-Free, takes about a minute, and needs no command line.
+Use this if GitHub Actions is unavailable to you — a spending limit, Actions
+switched off, or a queue that never runs — or if you want to keep the
+repository private. Free, and **all of it is web forms, so it works from a
+phone**.
 
-1. On your PC, download the repository: the green **Code** button on GitHub →
-   **Download ZIP**. Unzip it.
-2. Go to <https://app.netlify.com/drop>.
-3. Drag the **`web` folder** (not the whole project — just `web`) onto the page.
-4. Netlify gives you an address like `https://cheerful-otter-1a2b3c.netlify.app`.
-   That is your app.
+1. Go to <https://app.netlify.com> and sign up with your GitHub account.
+2. **Add new site** → **Import an existing project** → **GitHub**.
+3. Authorise Netlify and pick **FinApp**.
+4. Set:
+   - **Branch**: `main`, or the `claude/…` branch
+   - **Build command**: leave empty — there is nothing to build
+   - **Publish directory**: `web`
+5. **Deploy**. About twenty seconds later you get an address like
+   `https://cheerful-otter-1a2b3c.netlify.app`, and it redeploys itself on
+   every push from then on.
 
-Make a free Netlify account when it offers, otherwise the site is temporary.
-Cloudflare Pages and Vercel work the same way if you prefer one of those.
+Cloudflare Pages and Vercel work the same way, with the same two settings: no
+build command, publish directory `web`.
 
-To update it later, drag the new `web` folder on again. If you would rather
-have it update itself on every push, connect the repository in Netlify with
-publish directory `web` and no build command — it reads private repositories
-on the free plan.
+> There is also <https://app.netlify.com/drop>, where you drag the `web`
+> folder onto the page. It is quick from a desktop, but dragging a folder is
+> awkward on a phone — prefer the repository connection above.
 
 ---
 
