@@ -6,7 +6,7 @@
 
 import { CATEGORIES, categoryIcon, categoryName, source as sourceInfo } from './categories.js';
 import { categoryDonut, dailyBars, progressBar } from './charts.js';
-import { expenseFromParams, importParams } from './card-import.js';
+import { canonicalSiteURL, expenseFromParams, importParams } from './card-import.js';
 import { fileStamp, toCSV } from './csv.js';
 import {
   addMonths, dayInterval, fromDateTimeLocalValue, isSameDay,
@@ -373,10 +373,28 @@ function expenseRow(expense) {
 function settingsScreen() {
   const { settings } = state;
   const codes = [...new Set([...currenciesUsed(state.expenses), ...COMMON_CURRENCIES])];
-  const origin = `${window.location.origin}${window.location.pathname}`;
-  const shortcutURL = `${origin}?add=1&amount=AMOUNT&merchant=MERCHANT`;
+  const here = `${window.location.origin}${window.location.pathname}`;
+  const canonical = canonicalSiteURL(window.location.href);
+  const shortcutURL = `${canonical ?? here}?add=1&amount=AMOUNT&merchant=MERCHANT`;
+
+  // A per-deploy preview link gets its own storage, so a ledger built here is
+  // invisible from the real address. Say so at the top of Settings, before
+  // anything is logged into the wrong one.
+  const previewWarning = canonical ? `
+    <section class="card">
+      <h2 class="card__title">Wrong address</h2>
+      <p class="hint hint--warn">You are on a preview link that belongs to one
+        particular deploy. Expenses are stored per address, so anything logged
+        here will be missing when you open the real one. Use this instead, and
+        add <em>that</em> to your home screen:</p>
+      <code class="code">${esc(canonical)}</code>
+      <div class="row-actions">
+        <a class="button button--primary" href="${esc(canonical)}">Go there now</a>
+      </div>
+    </section>` : '';
 
   return `
+    ${previewWarning}
     <section class="card">
       <h2 class="card__title">Money</h2>
       <label class="field">

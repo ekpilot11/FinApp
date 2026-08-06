@@ -40,6 +40,31 @@ export function fingerprint(amountCents, merchant, date) {
 }
 
 /**
+ * The address FinApp should be used at, when the current one is a per-deploy
+ * preview link.
+ *
+ * Netlify (and Vercel, and Cloudflare) hand out permalinks pinned to a single
+ * deploy — `6a751ad7...--your-site.netlify.app`. Browser storage is per
+ * origin, so logging a purchase through one address and opening the app on
+ * the other silently gives you two separate ledgers, each missing half your
+ * spending. That is a bad way to find out.
+ *
+ * @returns {string|null} the stable address, or null if this one is already it
+ */
+export function canonicalSiteURL(href) {
+  let url;
+  try {
+    url = new URL(href);
+  } catch {
+    return null;
+  }
+
+  const match = /^[0-9a-f]{6,}--(.+)$/i.exec(url.hostname);
+  if (!match) return null;
+  return `${url.protocol}//${match[1]}${url.pathname}`;
+}
+
+/**
  * Reads an import request out of a URL's query string or hash.
  *
  * Both are accepted because Shortcuts users copy whichever example they find

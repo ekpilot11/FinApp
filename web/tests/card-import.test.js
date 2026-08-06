@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { expenseFromParams, importParams } from '../js/card-import.js';
+import { canonicalSiteURL, expenseFromParams, importParams } from '../js/card-import.js';
 
 const BASE = 'https://example.github.io/FinApp/';
 const CONTEXT = { defaultCurrency: 'USD', now: new Date(2026, 7, 4, 10) };
@@ -54,6 +54,30 @@ test('an explicit currency and id win', () => {
 test('a fingerprint stands in when no id is supplied', () => {
   const expense = fields('?amount=4.75&merchant=Blue%20Bottle&date=2026-02-01T09:00:00Z');
   assert.match(expense.externalID, /^applepay:4\.75:blue-bottle:\d{4}-\d{2}-\d{2}$/);
+});
+
+// Storage is per origin, so a deploy permalink quietly builds a second,
+// separate ledger. Catching the address is the only warning anyone gets.
+test('spots a per-deploy preview address', () => {
+  assert.equal(
+    canonicalSiteURL('https://6a751ad74ea897fc33464f89--luminous-mooncake-e6485f.netlify.app/'),
+    'https://luminous-mooncake-e6485f.netlify.app/'
+  );
+  assert.equal(
+    canonicalSiteURL('https://deadbeef1234--my-site.netlify.app/FinApp/?add=1'),
+    'https://my-site.netlify.app/FinApp/'
+  );
+});
+
+test('leaves a normal address alone', () => {
+  for (const href of [
+    'https://luminous-mooncake-e6485f.netlify.app/',
+    'https://ekpilot11.github.io/FinApp/',
+    'http://localhost:8080/',
+    'not a url'
+  ]) {
+    assert.equal(canonicalSiteURL(href), null, `expected null for ${href}`);
+  }
 });
 
 test('an unusable amount is rejected rather than logged as zero', () => {
