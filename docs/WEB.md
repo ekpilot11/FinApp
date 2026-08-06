@@ -46,30 +46,30 @@ Pick whichever of these two suits you.
 
 ### Option A — GitHub Pages
 
-**This repository is currently private, and GitHub Pages does not work on
-private repositories on a free plan.** So either make it public first, or use
-Option B.
+**This needs no computer.** The repository has to be public (Pages is not
+available on private repositories on a free plan), and then it publishes
+itself: the workflow switches Pages on over the API the first time it runs, so
+there is nothing to configure by hand.
 
-To make it public: **Settings** → **General** → scroll to **Danger Zone** →
-**Change repository visibility** → **Make public**. (There are no passwords or
-keys in this repository — it is app code and documentation.)
+The address is:
 
-Then:
-
-1. **Settings** → **Pages** (left sidebar).
-2. Under **Build and deployment** → **Source**, choose **GitHub Actions**.
-   That is the whole configuration.
-3. Go to the **Actions** tab and open the most recent **Web** run. It runs the
-   tests, then publishes.
-4. When it finishes, the run shows the address:
-
-   ```
-   https://ekpilot11.github.io/FinApp/
-   ```
+```
+https://ekpilot11.github.io/FinApp/
+```
 
 Every later push to `main` — or to the `claude/…` branch this was built on —
 re-runs the tests and republishes. If the tests fail, nothing is published,
 which is the point.
+
+**If you ever need to run it manually from a phone:** github.com works fine in
+mobile Safari. **Actions** tab → **Web** → **Run workflow** → pick the branch
+→ **Run workflow**. Everything else about this project — reading the code,
+editing a file, committing — works from the phone browser too.
+
+To make the repository public if it is not: **Settings** → **General** →
+scroll to **Danger Zone** → **Change repository visibility** → **Make
+public**. There are no passwords or keys in it; it is app code and
+documentation.
 
 ### Option B — Netlify Drop (keeps the repository private)
 
@@ -169,15 +169,40 @@ logs whatever the URL carries.
      same way.
 9. Tap **Done**.
 
-Next time you tap to pay, Safari flashes open, FinApp records the purchase,
-and a banner tells you what it logged.
+Next time you tap to pay, FinApp opens, records the purchase, and a banner
+tells you what it logged. If you added FinApp to the home screen, iOS usually
+opens the installed app rather than a Safari tab, because the address is
+inside the app's scope.
 
-### Why it opens Safari
+### Why it has to open at all
 
 The native app could do this silently through an App Intent. A web page cannot
 run without being opened — that is a property of the platform, not something
-FinApp can work around. The trade is one second of Safari against not having
-to type the purchase at all.
+FinApp can work around. The trade is a second of screen against not having to
+type the purchase at all.
+
+### What to check on the first purchase
+
+This part could not be tested without a real iPhone and a real card, so treat
+the first tap as the test:
+
+- **If nothing happens**, the automation is probably still set to ask before
+  running. Shortcuts → Automation → your automation → turn **Run Immediately**
+  on and **Notify When Run** off.
+- **If it opens but logs nothing**, the variables did not get inserted — the
+  address still has the literal words `AMOUNT` or `MERCHANT` in it. Open the
+  automation and re-insert them from the suggestion bar rather than typing
+  them.
+- **If the phone was locked when you paid**, iOS may hold the automation until
+  you next unlock. That is iOS deciding, not FinApp.
+- **If it logs the wrong category**, open the entry and change it — the
+  category is guessed from the merchant name alone here, which is less to go
+  on than a spoken sentence.
+
+If the automatic route turns out to be more trouble than it is worth, the same
+link works as a manual shortcut: put it on your home screen and tap it after a
+purchase, or just say the purchase into the app, which is what most of this
+was built for.
 
 ### Duplicates
 
