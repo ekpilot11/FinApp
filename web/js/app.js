@@ -44,6 +44,7 @@ const state = {
 
 const dictation = new Dictation();
 let toastTimer = null;
+let toastActions = [];
 
 // MARK: - Boot
 
@@ -475,7 +476,7 @@ function settingsScreen() {
 
 // MARK: - Editor sheet
 
-function openEditor(expense, { isNew = false, warning = '' } = {}) {
+function openEditor(expense, { isNew = false, warning = '', alternative = null } = {}) {
   state.editing = { expense, isNew };
   const sheet = document.getElementById('sheet');
 
@@ -495,6 +496,13 @@ function openEditor(expense, { isNew = false, warning = '' } = {}) {
         <input type="text" inputmode="decimal" name="amount" required
                value="${expense.amount ? decimalStringFromCents(Math.abs(expense.amount)) : ''}">
       </label>
+
+      ${alternative !== null ? `
+        <p class="hint">Dictation cannot tell “twelve fifty” from “twelve hundred
+          fifty” — both come through as the same digits.
+          <button type="button" class="link" data-action="use-alternative"
+                  data-amount="${decimalStringFromCents(alternative)}">Use
+            ${esc(format(alternative, expense.currencyCode))} instead</button></p>` : ''}
 
       <label class="field field--switch">
         <span>This was a refund</span>
@@ -607,6 +615,12 @@ function onClick(event) {
     case 'close-sheet':
       closeEditor();
       break;
+    case 'use-alternative': {
+      const field = document.querySelector('.sheet__panel input[name="amount"]');
+      if (field) field.value = target.dataset.amount;
+      target.closest('.hint')?.remove();
+      break;
+    }
     case 'delete':
       deleteEditing();
       break;
@@ -736,6 +750,7 @@ function logSentence(text) {
   if (!confident) {
     openEditor(expense, {
       isNew: true,
+      alternative: parsed.alternativeAmount,
       warning: parsed.isUsable
         ? 'Check this over — I was not sure I heard it right.'
         : 'I could not hear an amount. Fill it in and save.'
@@ -752,8 +767,36 @@ function logSentence(text) {
 
   const label = `${format(result.row.amount, result.row.currencyCode)}`
     + `${result.row.merchant ? ` at ${result.row.merchant}` : ''}`;
-  showToast(result.merged ? `Already logged ${label}.` : `Logged ${label}.`,
-    result.merged ? null : 'Undo');
+
+  const actions = [];
+  if (!result.merged) {
+    // Dictation turns "twelve fifty" into 1250 and there is no way to tell
+    // that from twelve hundred fifty. Offer the other reading right where the
+    // mistake would otherwise go unnoticed — one tap, no editor.
+    if (parsed.alternativeAmount !== null) {
+      const other = parsed.isRefund ? -parsed.alternativeAmount : parsed.alternativeAmount;
+      actions.push({
+        label: `No, ${format(other, result.row.currencyCode)}`,
+        run: () => correctAmount(result.row.id, other)
+      });
+    }
+    actions.push({ label: 'Undo', run: undoLast });
+  }
+
+  showToast(result.merged ? `Already logged ${label}.` : `Logged ${label}.`, actions);
+}
+
+/** Rewrites a just-saved row's amount, for the "did you mean" offer. */
+function correctAmount(id, amount) {
+  const row = state.expenses.find((candidate) => candidate.id === id);
+  if (!row) return;
+  state.expenses = state.expenses.map(
+    (candidate) => (candidate.id === id ? { ...candidate, amount } : candidate)
+  );
+  state.lastAction = null;
+  persistExpenses();
+  render();
+  showToast(`Changed to ${format(amount, row.currencyCode)}.`);
 }
 
 function undoLast() {
@@ -885,20 +928,29 @@ async function copyShortcutURL() {
 
 // MARK: - Chrome
 
-function showToast(message, actionLabel = null) {
+/**
+ * @param {{label: string, run: () => void}[]} actions
+ */
+function showToast(message, actions = []) {
   const toast = document.getElementById('toast');
+  toastActions = actions;
+
   toast.innerHTML = `<span>${esc(message)}</span>`
-    + (actionLabel ? `<button type="button" class="link" data-action="undo">${esc(actionLabel)}</button>` : '');
+    + actions.map((action, index) =>
+      `<button type="button" class="link" data-toast="${index}">${esc(action.label)}</button>`
+    ).join('');
   toast.hidden = false;
+
   toast.onclick = (event) => {
-    if (event.target.closest('[data-action="undo"]')) {
-      undoLast();
-      toast.hidden = true;
-    }
+    const button = event.target.closest('[data-toast]');
+    if (!button) return;
+    toast.hidden = true;
+    toastActions[Number(button.dataset.toast)]?.run();
   };
 
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { toast.hidden = true; }, actionLabel ? 6000 : 3200);
+  // Long enough to read and act on an offer to fix a hundred-times error.
+  toastTimer = setTimeout(() => { toast.hidden = true; }, actions.length ? 9000 : 3200);
 }
 
 function esc(value) {

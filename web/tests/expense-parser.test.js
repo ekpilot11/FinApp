@@ -97,6 +97,42 @@ test('cents arithmetic does not drift', () => {
   assert.equal(sum, 4750);
 });
 
+// MARK: - Dictated bare numbers
+//
+// Safari does not hand over the words "twelve fifty" — it hands over 1250,
+// which is equally twelve fifty and twelve hundred fifty. The parser cannot
+// recover the difference, so it must surface both rather than pick one and
+// file a coffee at a hundred times its price.
+
+test('a bare dictated number offers the other reading', () => {
+  const result = parseAt('1250 on coffee');
+  assert.equal(result.amount, 125000);
+  assert.equal(result.alternativeAmount, 1250, '1250 could be 12.50');
+
+  assert.equal(parseAt('150 on coffee').alternativeAmount, 150);
+  assert.equal(parseAt('9999 on rent').alternativeAmount, 9999);
+});
+
+test('an unambiguous amount offers nothing', () => {
+  // A spoken separator settles it.
+  assert.equal(parseAt('$45.99 at Whole Foods').alternativeAmount, null);
+  assert.equal(parseAt('12 dollars and 50 cents for parking').alternativeAmount, null);
+  // Nobody says "twelve hundred" meaning twelve.
+  assert.equal(parseAt('1200 on rent').alternativeAmount, null);
+  // Two digits cannot hide a cents part.
+  assert.equal(parseAt('spent 40 euros at the pharmacy').alternativeAmount, null);
+  // Five digits is past anything anyone says as dollars-and-cents.
+  assert.equal(parseAt('12500 on a car').alternativeAmount, null);
+});
+
+// The words themselves are never ambiguous — that is the whole difference.
+test('spelled-out numbers offer nothing', () => {
+  const result = parseAt('spent twelve fifty on coffee at Starbucks');
+  assert.equal(result.amount, 1250);
+  assert.equal(result.alternativeAmount, null);
+  assert.equal(parseAt('twenty five bucks on lunch').alternativeAmount, null);
+});
+
 // MARK: - Dates
 
 test('yesterday', () => {

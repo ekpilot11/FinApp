@@ -32,6 +32,8 @@ export const REVIEW_THRESHOLD = 0.6;
  * @property {string} transcript exactly what was heard
  * @property {boolean} isUsable
  * @property {number|null} signedAmount cents, negative for refunds
+ * @property {number|null} alternativeAmount the other plausible reading of a
+ *   dictated bare number, in cents; null when the amount is unambiguous
  */
 
 /**
@@ -80,7 +82,8 @@ export function parse(rawText, options = {}) {
     confidence: Math.min(confidence, 1),
     transcript,
     isUsable: amount !== null,
-    signedAmount: amount === null ? null : (isRefund ? -amount : amount)
+    signedAmount: amount === null ? null : (isRefund ? -amount : amount),
+    alternativeAmount: amountMatch?.alternative ?? null
   };
 }
 
@@ -134,8 +137,38 @@ const DIGITS_AND_CENTS_PATTERN = /(R\$|[$€£¥₹₽₩₺])?\s*(\d+)\s*(dolla
  * @property {number} value cents
  * @property {string} currencyCode
  * @property {boolean} hadExplicitCurrency
+ * @property {number|null} alternative the other plausible reading, in cents
  * @property {{start: number, end: number}} range
  */
+
+/**
+ * The other way a bare number could be read, when dictation has already
+ * thrown away the distinction.
+ *
+ * Saying "twelve fifty" into Safari does not produce the words — it produces
+ * `1250`, which is equally "twelve fifty" and "twelve hundred and fifty".
+ * Nothing downstream can recover which was meant, so guessing silently is how
+ * a coffee gets filed at a hundred times its price and every total after it
+ * is wrong.
+ *
+ * Only bare integers qualify. A spoken separator ("twelve point five",
+ * "45.99") settles the question, and so does a round hundred: nobody says
+ * "twelve hundred" meaning twelve.
+ *
+ * @param {string} numberText exactly as it appeared
+ * @param {number} cents the literal reading
+ * @returns {number|null} the alternative in cents, or null when unambiguous
+ */
+function alternativeReading(numberText, cents) {
+  if (/[.,]/.test(numberText)) return null;
+  if (cents % 100 !== 0) return null;
+
+  const major = cents / 100;
+  if (major < 100 || major > 9999) return null;
+  if (major % 100 === 0) return null;
+
+  return major;
+}
 
 /** @returns {AmountMatch|null} */
 export function extractAmount(text, defaultCurrency) {
@@ -175,6 +208,7 @@ function extractDigitsAndCents(text, defaultCurrency) {
     currencyCode: code,
     // Saying "cents" is itself an explicit statement about money.
     hadExplicitCurrency: true,
+    alternative: null,
     range: { start: match.index, end: match.index + match[0].length }
   };
 }
@@ -224,6 +258,7 @@ function extractDigitAmount(text, defaultCurrency) {
           value,
           currencyCode: code,
           hadExplicitCurrency: explicit,
+          alternative: alternativeReading(numberText, value),
           range: { start: fullStart, end: fullEnd }
         }
       };
@@ -254,10 +289,13 @@ function extractSpelledAmount(text, defaultCurrency) {
   /** Tokens allowed to sit between the dollars part and the cents part. */
   const bridge = new Set(['and', 'point', 'dot', ...Object.keys(CURRENCY_WORDS)]);
 
+  // Spelled-out numbers are never ambiguous: the speaker said the words, and
+  // "twelve fifty" and "twelve hundred fifty" are different words.
   const makeMatch = (value, start, end) => ({
     value,
     currencyCode: code,
     hadExplicitCurrency: explicit,
+    alternative: null,
     range: { start: tokens[start].start, end: tokens[end - 1].end }
   });
 
