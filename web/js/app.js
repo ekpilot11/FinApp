@@ -306,6 +306,17 @@ function categoryLimitRow(slice, currencyCode) {
     </li>`;
 }
 
+/**
+ * True when running as an installed home-screen app rather than in a browser
+ * tab. iOS can give the two separate storage, so which one you are in decides
+ * which expenses you can see — worth saying out loud rather than leaving
+ * someone to conclude their data vanished.
+ */
+function isStandalone() {
+  return window.matchMedia?.('(display-mode: standalone)').matches
+    || window.navigator.standalone === true;
+}
+
 function categoryColorOf(id) {
   return CATEGORIES.find((entry) => entry.id === id)?.color ?? '#8E8E93';
 }
@@ -455,8 +466,18 @@ function settingsScreen() {
 
     <section class="card">
       <h2 class="card__title">Your data</h2>
-      <p class="hint">${state.expenses.length} expense${state.expenses.length === 1 ? '' : 's'},
-        stored only in this browser. Clearing website data erases them, so keep a backup.</p>
+      <p class="hint"><strong>${state.expenses.length}
+        expense${state.expenses.length === 1 ? '' : 's'} here</strong>, and you are
+        ${isStandalone()
+          ? 'running FinApp <strong>from the home screen</strong>'
+          : 'running FinApp <strong>in the browser</strong>'}.</p>
+      <p class="hint hint--warn">iOS can keep these two as separate stores. If a
+        purchase you logged one way is missing from the other, that is why — the
+        data is not lost, it is in the other one. Open both, see which has the
+        higher count, and keep using that one. Use <strong>Download backup</strong>
+        here and <strong>Restore backup</strong> there to bring them together.</p>
+      <p class="hint">Nothing is uploaded anywhere. Clearing website data erases
+        it all, so keep a backup.</p>
       <div class="row-actions row-actions--wrap">
         <button type="button" class="button" data-action="export-csv">Export CSV</button>
         <button type="button" class="button" data-action="export-backup">Download backup</button>
