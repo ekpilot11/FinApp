@@ -21,7 +21,8 @@ import { decimalStringFromCents, format } from './money.js';
 import { Dictation, LANGUAGES, isSupported as speechIsSupported } from './speech.js';
 import {
   clearEverything, exportBackup, importBackup, loadBudgets, loadExpenses,
-  loadSettings, saveBudgets, saveExpenses, saveSettings
+  loadLastImport, loadSettings, saveBudgets, saveExpenses, saveLastImport,
+  saveSettings
 } from './storage.js';
 
 const COMMON_CURRENCIES = [
@@ -39,7 +40,8 @@ const state = {
   transcript: '',
   listening: false,
   editing: null,
-  lastAction: null
+  lastAction: null,
+  lastImport: null
 };
 
 const dictation = new Dictation();
@@ -90,28 +92,79 @@ function handleImportRequest() {
   const params = importParams(window.location.href);
   if (!params) return;
 
+  // Recorded before anything is interpreted. If the automation delivered an
+  // empty amount, this is the only evidence that survives — the page opens
+  // while the phone is going back into a pocket.
+  const received = {
+    at: new Date().toISOString(),
+    amount: params.get('amount') ?? '',
+    merchant: params.get('merchant') ?? '',
+    currency: params.get('currency') ?? '',
+    id: params.get('id') ?? ''
+  };
+
   const fields = expenseFromParams(params, { defaultCurrency: state.settings.currencyCode });
   // Strip the parameters either way, so a reload cannot log the purchase twice.
-  const clean = window.location.pathname;
-  window.history.replaceState(null, '', `${clean}#/log`);
+  window.history.replaceState(null, '', `${window.location.pathname}#/log`);
 
   if (!fields) {
-    queueToast('That link had no amount in it, so nothing was logged.');
+    recordImport({ ...received, outcome: 'rejected' });
     return;
   }
 
   const result = insert(makeExpense(fields), state.expenses);
   state.expenses = result.expenses;
   persistExpenses();
-  queueToast(result.merged
-    ? `Already had that ${format(Math.abs(result.row.amount), result.row.currencyCode)} purchase.`
-    : `Logged ${format(Math.abs(result.row.amount), result.row.currencyCode)}`
-      + `${result.row.merchant ? ` at ${result.row.merchant}` : ''}.`);
+  recordImport({
+    ...received,
+    outcome: result.merged ? 'duplicate' : 'logged',
+    stored: format(result.row.amount, result.row.currencyCode)
+  });
 }
 
-let pendingToast = null;
-function queueToast(message) {
-  pendingToast = message;
+function recordImport(record) {
+  state.lastImport = record;
+  saveLastImport(record);
+}
+
+/**
+ * The result of a card import, as a panel that stays put.
+ *
+ * A toast was wrong for this: the automation runs unattended, Safari is still
+ * opening as it fires, and three seconds later the one thing that would
+ * explain a missing purchase is gone.
+ */
+function importReport(record, { dismissable }) {
+  if (!record) return '';
+
+  const when = new Date(record.at).toLocaleString();
+  const quote = (value) => (value ? `“${esc(value)}”` : '<em>empty</em>');
+
+  const headline = {
+    logged: `Logged ${esc(record.stored ?? '')}`,
+    duplicate: `Already had ${esc(record.stored ?? '')} — not counted twice`,
+    rejected: 'Nothing logged: no usable amount arrived'
+  }[record.outcome] ?? 'Card link received';
+
+  const explanation = record.outcome === 'rejected' ? `
+    <p class="hint hint--warn">The link opened but carried no amount, so there was
+      nothing to record. In Shortcuts, open the automation and check that the
+      <strong>Amount</strong> variable sits immediately after
+      <code>amount=</code> — a chip, not the word. If it looks right, the card
+      may not report an amount until the purchase settles.</p>` : '';
+
+  return `
+    <section class="card">
+      <h2 class="card__title">
+        Last card purchase
+        ${dismissable ? '<button type="button" class="link" data-action="dismiss-import">Dismiss</button>' : ''}
+      </h2>
+      <p><strong>${headline}</strong></p>
+      <p class="hint">${esc(when)}</p>
+      <p class="hint">Received — amount: ${quote(record.amount)},
+        merchant: ${quote(record.merchant)}${record.currency ? `, currency: ${quote(record.currency)}` : ''}</p>
+      ${explanation}
+    </section>`;
 }
 
 // MARK: - Rendering
@@ -126,12 +179,6 @@ function render() {
     if (input && state.transcript && document.activeElement !== input) {
       input.value = state.transcript;
     }
-  }
-
-  if (pendingToast) {
-    const message = pendingToast;
-    pendingToast = null;
-    showToast(message);
   }
 }
 
@@ -175,6 +222,8 @@ function logScreen() {
        in Safari. Typing the same sentence below runs through exactly the same parser.</p>`;
 
   return `
+    ${importReport(state.lastImport, { dismissable: true })}
+
     <section class="hero">
       <p class="hero__label">Spent today</p>
       <p class="hero__value">${esc(format(todayTotal, currencyCode))}</p>
@@ -464,6 +513,8 @@ function settingsScreen() {
       <p class="hint">Full walkthrough in <code>docs/WEB.md</code> in the repository.</p>
     </section>
 
+    ${importReport(loadLastImport(), { dismissable: false })}
+
     <section class="card">
       <h2 class="card__title">Your data</h2>
       <p class="hint"><strong>${state.expenses.length}
@@ -635,6 +686,11 @@ function onClick(event) {
     }
     case 'close-sheet':
       closeEditor();
+      break;
+    case 'dismiss-import':
+      // Cleared from the Log screen only; Settings keeps the record.
+      state.lastImport = null;
+      render();
       break;
     case 'use-alternative': {
       const field = document.querySelector('.sheet__panel input[name="amount"]');

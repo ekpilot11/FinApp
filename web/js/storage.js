@@ -9,6 +9,7 @@ import { makeExpense } from './ledger.js';
 const EXPENSES_KEY = 'finapp.expenses.v1';
 const SETTINGS_KEY = 'finapp.settings.v1';
 const BUDGETS_KEY = 'finapp.budgets.v1';
+const LAST_IMPORT_KEY = 'finapp.lastImport.v1';
 
 /** Region → currency. Enough to make the first run feel right; editable in Settings. */
 const REGION_CURRENCIES = {
@@ -111,8 +112,25 @@ export function saveBudgets(budgets) {
   return writeJSON(BUDGETS_KEY, budgets);
 }
 
+/**
+ * What the last Shortcuts link actually delivered.
+ *
+ * Kept because a card automation fires while you are putting your phone away:
+ * whatever the app says on screen is gone before you look, and if the values
+ * arrived empty there is otherwise nothing left to diagnose. One record,
+ * overwritten each time.
+ */
+export function saveLastImport(record) {
+  return writeJSON(LAST_IMPORT_KEY, record);
+}
+
+export function loadLastImport() {
+  const stored = readJSON(LAST_IMPORT_KEY, null);
+  return stored && typeof stored === 'object' ? stored : null;
+}
+
 export function clearEverything() {
-  for (const key of [EXPENSES_KEY, SETTINGS_KEY, BUDGETS_KEY]) {
+  for (const key of [EXPENSES_KEY, SETTINGS_KEY, BUDGETS_KEY, LAST_IMPORT_KEY]) {
     try {
       localStorage.removeItem(key);
     } catch {
