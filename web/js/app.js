@@ -140,18 +140,37 @@ function importReport(record, { dismissable }) {
   const when = new Date(record.at).toLocaleString();
   const quote = (value) => (value ? `“${esc(value)}”` : '<em>empty</em>');
 
-  const headline = {
-    logged: `Logged ${esc(record.stored ?? '')}`,
-    duplicate: `Already had ${esc(record.stored ?? '')} — not counted twice`,
-    rejected: 'Nothing logged: no usable amount arrived'
-  }[record.outcome] ?? 'Card link received';
+  const time = new Date(record.at).toLocaleTimeString(undefined, {
+    hour: 'numeric', minute: '2-digit'
+  });
 
-  const explanation = record.outcome === 'rejected' ? `
-    <p class="hint hint--warn">The link opened but carried no amount, so there was
-      nothing to record. In Shortcuts, open the automation and check that the
-      <strong>Amount</strong> variable sits immediately after
-      <code>amount=</code> — a chip, not the word. If it looks right, the card
-      may not report an amount until the purchase settles.</p>` : '';
+  // The interesting case. iOS only fills in transaction details for Apple
+  // Card and Apple Cash; every other card in Wallet fires the automation and
+  // hands over an empty amount — here, the bare currency symbol "R$". That
+  // cannot be fixed from this side, so the automation gets repurposed: it
+  // still knows a card was used, and when, which is the moment you are most
+  // likely to remember what for.
+  if (record.outcome === 'rejected') {
+    return `
+      <section class="card">
+        <h2 class="card__title">
+          Card used at ${esc(time)}
+          ${dismissable ? '<button type="button" class="link" data-action="dismiss-import">Dismiss</button>' : ''}
+        </h2>
+        <p>Your bank did not tell iOS the amount — only Apple Card and Apple
+          Cash do that. So FinApp knows you paid, but not how much.</p>
+        <div class="row-actions">
+          <button type="button" class="button button--primary" data-action="prompt-voice">Say it</button>
+          <button type="button" class="button" data-action="prompt-type">Type it</button>
+        </div>
+        <p class="hint">Received — amount: ${quote(record.amount)},
+          merchant: ${quote(record.merchant)}</p>
+      </section>`;
+  }
+
+  const headline = record.outcome === 'duplicate'
+    ? `Already had ${esc(record.stored ?? '')} — not counted twice`
+    : `Logged ${esc(record.stored ?? '')}`;
 
   return `
     <section class="card">
@@ -163,7 +182,6 @@ function importReport(record, { dismissable }) {
       <p class="hint">${esc(when)}</p>
       <p class="hint">Received — amount: ${quote(record.amount)},
         merchant: ${quote(record.merchant)}${record.currency ? `, currency: ${quote(record.currency)}` : ''}</p>
-      ${explanation}
     </section>`;
 }
 
@@ -692,6 +710,26 @@ function onClick(event) {
       state.lastImport = null;
       render();
       break;
+    case 'prompt-voice':
+      state.lastImport = null;
+      render();
+      toggleDictation();
+      break;
+    case 'prompt-type': {
+      // Dated to the tap, not to whenever the editor is finally saved.
+      const tapped = new Date(state.lastImport?.at ?? Date.now());
+      const merchant = state.lastImport?.merchant ?? '';
+      state.lastImport = null;
+      openEditor(makeExpense({
+        amount: 0,
+        currencyCode: state.settings.currencyCode,
+        merchant,
+        date: Number.isNaN(tapped.getTime()) ? new Date() : tapped,
+        source: 'manual'
+      }), { isNew: true });
+      render();
+      break;
+    }
     case 'use-alternative': {
       const field = document.querySelector('.sheet__panel input[name="amount"]');
       if (field) field.value = target.dataset.amount;
