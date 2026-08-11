@@ -27,6 +27,11 @@
     <nav id="tabbar" class="tabbar" aria-label="Sections"></nav>
   </div>
 
+  <!-- Outside #screen on purpose: choosing a photo backgrounds Safari, and an
+       input that got re-rendered in the meantime comes back without its
+       handler — so the screenshot is picked and nothing happens. -->
+  <input type="file" id="screenshot-file" accept="image/*" hidden>
+
   <div id="sheet" class="sheet" hidden></div>
   <div id="toast" class="toast" role="status" hidden></div>
 

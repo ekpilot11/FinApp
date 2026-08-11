@@ -6,7 +6,9 @@ GitHub, open it in Safari on your iPhone, and add it to the home screen. From
 then on it has its own icon and opens full-screen, like any other app.
 
 Everything you spend stays in your phone's browser storage. There is no
-account and no server — GitHub only ever serves the page itself.
+account and no server — GitHub only ever serves the page itself. The single
+exception is opt-in and obvious: a screenshot you choose to send to Anthropic
+to be read (section 5).
 
 ---
 
@@ -31,8 +33,16 @@ account and no server — GitHub only ever serves the page itself.
 - **Storage is the browser's.** "Clear website data" in Safari erases the
   ledger. Take a backup now and then — there is a button for it.
 
+**Neither, quite**
+
+- **Reading your bank's notifications.** No app or website on iOS can, and the
+  native version could not either. What the web version adds is the next best
+  thing: screenshot them and have Anthropic read the whole day's worth at
+  once. Costs a few cents and sends the picture off the phone, so it is off
+  until you paste in a key. Section 5.
+
 Everything else is the same code, decision for decision: the same parser, the
-same categories, the same de-duplication, the same 72 tests.
+same categories, the same de-duplication, the same tests.
 
 ---
 
@@ -221,10 +231,68 @@ duplicate you can delete.
 
 ---
 
-## 5. Your data
+## 5. Screenshots — a day's purchases in one go
+
+Every card purchase puts a notification on your lock screen. Nothing on iOS can
+read those notifications — no app, no website, no shortcut; Apple exposes no
+API for it. But *you* can screenshot them, and by evening a whole day is
+usually sitting there in one picture.
+
+**Add from screenshot** on the Log tab sends that picture to Anthropic's API,
+which reads every purchase in it and hands them back as a list. You check the
+list, fix anything wrong, untick anything you do not want, and tap Add.
+
+### Set it up
+
+1. Go to <https://console.anthropic.com>, sign in, and create an API key under
+   **API keys**. It starts with `sk-ant-`.
+2. In FinApp: **Settings → Screenshots**, paste the key, tap elsewhere to save.
+
+The key is stored in this browser and sent to nobody but Anthropic. It is kept
+in its own storage slot, deliberately outside **Download backup**, so a backup
+file stays safe to email to yourself.
+
+### Using it
+
+1. Screenshot your notifications — the lock screen, Notification Centre, or
+   your bank's own transaction list. Several purchases in one picture is the
+   point.
+2. **Log → Add from screenshot**, pick the picture.
+3. A few seconds later you get one row per purchase, each with amount,
+   merchant, time and a guessed category, all editable.
+4. Rows that look like something you already logged that day arrive
+   **unticked**, with a note saying which. Tick one anyway if it really is a
+   second, separate purchase — two coffees at the same place on one day is a
+   real thing, and only you can tell.
+5. **Add**. Undo takes the whole batch back if you were too quick.
+
+Portuguese notifications work as well as English ones — "compra aprovada",
+"estorno", "R$" and the rest are all understood, which the sentence parser
+does not manage.
+
+### What it costs, and what it gives up
+
+- **Money.** Roughly a few cents per screenshot, billed to your own Anthropic
+  account. Screenshots are downscaled to 1568px and re-encoded before sending,
+  which keeps both the bill and the wait down.
+- **Privacy.** This is the one part of FinApp that leaves your phone. The whole
+  picture goes to Anthropic — including anything else that happened to be on
+  that screen. Typing and dictation are unchanged: still local, still yours.
+  If that trade is not worth it, leave the key blank and the button does
+  nothing.
+
+Nothing from a screenshot is ever saved without you seeing it first. The model
+is reading blurry banners, half of them clipped by the one above, and a wrong
+number sitting in your totals looks exactly like a right one — so the review
+sheet is not a formality, and there is no setting to skip it.
+
+---
+
+## 6. Your data
 
 Everything lives in this browser's local storage on this device. It is not
-synced, not backed up, and not sent anywhere.
+synced, not backed up, and not sent anywhere — except a screenshot you
+explicitly send, as above.
 
 That means one real risk: **clearing Safari's website data erases it.** So:
 
@@ -238,7 +306,7 @@ version exists to avoid.
 
 ---
 
-## 6. Changing it
+## 7. Changing it
 
 Everything is plain HTML, CSS and ES modules. No framework, no build step, no
 `npm install`. The file you edit is the file that runs.
@@ -256,8 +324,10 @@ web/
     ledger.js            storage-independent expense logic
     storage.js           localStorage
     card-import.js       the Shortcuts bridge
+    vision.js            the screenshot reader: request, reply, error text
+    image.js             downscale + re-encode before sending
     money.js  dates.js  text.js  charts.js  csv.js  speech.js
-  tests/              72 tests, run by Node
+  tests/              109 tests, run by Node
 ```
 
 Run the tests on Windows, macOS or Linux with Node 20 or newer:
@@ -279,7 +349,12 @@ No packages are installed — `npm test` just calls Node's own test runner.
   question, not a duration: subtracting 86,400,000 ms across a daylight-saving
   change lands on the wrong day. The tests run in four time zones in CI for
   this reason.
-- **Parsing is deterministic and offline.** No model, no API key. A wrong
+- **The screenshot reader is the one exception, and it is walled off.**
+  Everything above `readScreenshot` in `vision.js` is a pure function over
+  plain data, so the request FinApp builds and the reply it will accept are
+  both tested without a network or a key. Nothing it returns is saved without
+  a human tick.
+- **Sentence parsing is deterministic and offline.** No model, no API key. A wrong
   guess costs a tap, not a bad record — `REVIEW_THRESHOLD` in
   `expense-parser.js` is the dial.
 - **No currency conversion.** Each expense keeps its own currency and totals

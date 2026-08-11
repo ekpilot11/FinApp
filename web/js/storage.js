@@ -10,6 +10,7 @@ const EXPENSES_KEY = 'finapp.expenses.v1';
 const SETTINGS_KEY = 'finapp.settings.v1';
 const BUDGETS_KEY = 'finapp.budgets.v1';
 const LAST_IMPORT_KEY = 'finapp.lastImport.v1';
+const API_KEY_KEY = 'finapp.anthropicKey.v1';
 
 /** Region → currency. Enough to make the first run feel right; editable in Settings. */
 const REGION_CURRENCIES = {
@@ -129,8 +130,34 @@ export function loadLastImport() {
   return stored && typeof stored === 'object' ? stored : null;
 }
 
+/**
+ * The Anthropic key, for reading screenshots.
+ *
+ * Deliberately kept out of `settings` rather than added as another field:
+ * settings go into the backup file and would carry the key into every export,
+ * into whatever the user emails themselves, and into whatever they hand over
+ * when asking for help. This lives on its own so a backup stays shareable.
+ */
+export function loadAPIKey() {
+  try {
+    return localStorage.getItem(API_KEY_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+export function saveAPIKey(key) {
+  try {
+    if (key) localStorage.setItem(API_KEY_KEY, key);
+    else localStorage.removeItem(API_KEY_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function clearEverything() {
-  for (const key of [EXPENSES_KEY, SETTINGS_KEY, BUDGETS_KEY, LAST_IMPORT_KEY]) {
+  for (const key of [EXPENSES_KEY, SETTINGS_KEY, BUDGETS_KEY, LAST_IMPORT_KEY, API_KEY_KEY]) {
     try {
       localStorage.removeItem(key);
     } catch {

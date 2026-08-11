@@ -17,13 +17,15 @@ import {
   currenciesUsed, expensesIn, insert, makeExpense,
   title as rowTitle, total, totalsByCategory, totalsByDay, unreviewedCount
 } from './ledger.js';
+import { prepareScreenshot } from './image.js';
 import { decimalStringFromCents, format } from './money.js';
 import { Dictation, LANGUAGES, isSupported as speechIsSupported } from './speech.js';
 import {
-  clearEverything, exportBackup, importBackup, loadBudgets, loadExpenses,
-  loadLastImport, loadSettings, saveBudgets, saveExpenses, saveLastImport,
+  clearEverything, exportBackup, importBackup, loadAPIKey, loadBudgets, loadExpenses,
+  loadLastImport, loadSettings, saveAPIKey, saveBudgets, saveExpenses, saveLastImport,
   saveSettings
 } from './storage.js';
+import { looksAlreadyLogged, readScreenshot } from './vision.js';
 
 const COMMON_CURRENCIES = [
   'USD', 'EUR', 'GBP', 'BRL', 'CAD', 'AUD', 'NZD', 'CHF', 'JPY', 'CNY',
@@ -41,7 +43,10 @@ const state = {
   listening: false,
   editing: null,
   lastAction: null,
-  lastImport: null
+  lastImport: null,
+  apiKey: '',
+  scanning: false,
+  review: null
 };
 
 const dictation = new Dictation();
@@ -53,6 +58,7 @@ let toastActions = [];
 function boot() {
   state.expenses = loadExpenses();
   state.budgets = loadBudgets();
+  state.apiKey = loadAPIKey();
 
   handleImportRequest();
   route();
@@ -66,6 +72,7 @@ function boot() {
   document.getElementById('app').addEventListener('submit', onSubmit);
   document.getElementById('sheet').addEventListener('click', onClick);
   document.getElementById('sheet').addEventListener('submit', onSubmit);
+  document.getElementById('sheet').addEventListener('keydown', onSheetKeydown);
 
   render();
   registerServiceWorker();
@@ -264,9 +271,14 @@ function logScreen() {
       <button type="submit" class="button button--primary">Log</button>
     </form>
 
-    <div class="row-actions">
+    <div class="row-actions row-actions--wrap">
       <button type="button" class="button button--quiet" data-action="new">Add by hand</button>
+      <button type="button" class="button button--quiet" data-action="scan" ${state.scanning ? 'disabled' : ''}>
+        ${state.scanning ? 'Reading screenshot…' : '📸 Add from screenshot'}
+      </button>
     </div>
+    ${state.scanning ? `<p class="hint">Sending the picture to Anthropic and waiting for the
+      purchases it finds. This takes a few seconds.</p>` : ''}
 
     ${recent.length ? `
       <section class="card">
@@ -520,6 +532,28 @@ function settingsScreen() {
     </section>
 
     <section class="card">
+      <h2 class="card__title">Screenshots</h2>
+      <p class="hint">Your bank's notifications pile up on the lock screen. Screenshot them,
+        tap <strong>Add from screenshot</strong> on the Log tab, and every purchase in the
+        picture comes back as a list you check over before anything is saved.</p>
+      <label class="field">
+        <span>Anthropic API key</span>
+        <input type="password" data-input="anthropicKey" autocomplete="off"
+               spellcheck="false" placeholder="sk-ant-…" value="${esc(state.apiKey)}">
+      </label>
+      <p class="hint">${state.apiKey
+        ? 'Key saved in this browser. Clear the field to remove it.'
+        : 'Get one at <code>console.anthropic.com</code> → API keys. Until you paste it here, '
+          + 'the screenshot button does nothing.'}</p>
+      <p class="hint hint--warn">This is the one part of FinApp that leaves your phone. The
+        picture — the whole picture, whatever else is on that screen — is sent to Anthropic to
+        be read. Typing and dictation stay local as before. Reading one screenshot costs a few
+        cents on your own Anthropic account.</p>
+      <p class="hint">The key is stored on its own and is deliberately left out of
+        <strong>Download backup</strong>, so a backup file stays safe to send to yourself.</p>
+    </section>
+
+    <section class="card">
       <h2 class="card__title">Apple Pay</h2>
       <p class="hint">No app or website can read Apple Wallet — Apple exposes no API for
         it. What does work is a Shortcuts <strong>Transaction</strong> automation that
@@ -568,6 +602,7 @@ function settingsScreen() {
 
 function openEditor(expense, { isNew = false, warning = '', alternative = null } = {}) {
   state.editing = { expense, isNew };
+  hideToast();
   const sheet = document.getElementById('sheet');
 
   sheet.innerHTML = `
@@ -648,8 +683,9 @@ function openEditor(expense, { isNew = false, warning = '', alternative = null }
   sheet.querySelector('input[name="amount"]')?.focus();
 }
 
-function closeEditor() {
+function closeSheet() {
   state.editing = null;
+  state.review = null;
   const sheet = document.getElementById('sheet');
   sheet.hidden = true;
   sheet.innerHTML = '';
@@ -673,6 +709,194 @@ function readEditor(form) {
     // Editing is a review.
     isReviewed: true
   };
+}
+
+// MARK: - Screenshot review
+
+/**
+ * Everything the model found, as a list you approve line by line.
+ *
+ * Nothing from a screenshot is ever saved straight away. The model is reading
+ * blurry banners, half of them cut off by the one above, and the failure that
+ * matters is not a missed purchase — it is a wrong number sitting in your
+ * totals looking exactly like a right one. So: every row visible, every field
+ * editable, and the ones that look like something you already have arrive
+ * unticked.
+ */
+function openReviewSheet(drafts) {
+  state.review = drafts.map((draft) => {
+    const existing = looksAlreadyLogged(draft, state.expenses);
+    return {
+      ...draft,
+      include: existing === null,
+      duplicateOf: existing ? rowTitle(existing, categoryName(existing.category)) : null
+    };
+  });
+
+  hideToast();
+  const sheet = document.getElementById('sheet');
+  const count = state.review.length;
+  const alreadyHave = state.review.filter((row) => row.duplicateOf).length;
+
+  sheet.innerHTML = `
+    <div class="sheet__scrim" data-action="close-sheet"></div>
+    <form class="sheet__panel" data-form="review">
+      <header class="sheet__head">
+        <button type="button" class="button button--quiet" data-action="close-sheet">Cancel</button>
+        <h2>${count} purchase${count === 1 ? '' : 's'}</h2>
+        <button type="submit" class="button button--primary">Add</button>
+      </header>
+
+      <p class="hint">Read off the screenshot. Fix anything that came out wrong, untick what
+        you do not want, then Add.${alreadyHave
+          ? ` ${alreadyHave} look${alreadyHave === 1 ? 's' : ''} like something you already
+             have and ${alreadyHave === 1 ? 'is' : 'are'} unticked.` : ''}</p>
+
+      <ul class="reviews">${state.review.map(reviewRow).join('')}</ul>
+    </form>`;
+
+  sheet.hidden = false;
+  document.body.classList.add('sheet-open');
+}
+
+function reviewRow(row, index) {
+  const signed = row.isRefund ? -row.amount : row.amount;
+  return `
+    <li class="review" data-index="${index}">
+      <label class="review__pick">
+        <input type="checkbox" data-field="include" ${row.include ? 'checked' : ''}
+               aria-label="Add this purchase">
+      </label>
+      <div class="review__fields">
+        <input type="text" class="review__merchant" data-field="merchant" autocomplete="off"
+               placeholder="Merchant" value="${esc(row.merchant)}">
+        <div class="review__pair">
+          <input type="text" inputmode="decimal" class="review__amount" data-field="amount"
+                 value="${decimalStringFromCents(signed)}" aria-label="Amount">
+          <span class="review__code">${esc(row.currencyCode)}</span>
+          <select data-field="category" aria-label="Category">
+            ${CATEGORIES.map((entry) => `<option value="${entry.id}"${
+              entry.id === row.category ? ' selected' : ''
+            }>${entry.icon} ${esc(entry.name)}</option>`).join('')}
+          </select>
+        </div>
+        <input type="datetime-local" data-field="date" value="${toDateTimeLocalValue(row.date)}"
+               aria-label="When">
+        ${row.duplicateOf ? `<p class="hint hint--warn">Looks like
+          “${esc(row.duplicateOf)}”, which you already have on this day.</p>` : ''}
+        ${row.note ? `<p class="hint">${esc(row.note)}</p>` : ''}
+      </div>
+    </li>`;
+}
+
+/** Reads the sheet back, because the user has been editing it since it opened. */
+function readReviewSheet(form) {
+  const kept = [];
+
+  for (const element of form.querySelectorAll('.review')) {
+    if (!element.querySelector('[data-field="include"]').checked) continue;
+
+    const base = state.review[Number(element.dataset.index)];
+    const raw = element.querySelector('[data-field="amount"]').value;
+    const magnitude = centsFromDigits(raw.replace(/[^\d.,]/g, ''));
+    // A row left blank or scribbled over is dropped, not saved as zero.
+    if (magnitude === null || magnitude === 0) continue;
+
+    kept.push(makeExpense({
+      // A leading minus is how you turn a row into a refund by hand, matching
+      // what the row shows you for one the model already flagged.
+      amount: /^\s*-/.test(raw) ? -magnitude : magnitude,
+      currencyCode: base.currencyCode,
+      merchant: element.querySelector('[data-field="merchant"]').value.trim(),
+      note: base.note,
+      date: fromDateTimeLocalValue(element.querySelector('[data-field="date"]').value) ?? base.date,
+      category: element.querySelector('[data-field="category"]').value,
+      source: 'screenshot',
+      // The sheet you just went through *is* the review.
+      isReviewed: true
+    }));
+  }
+
+  return kept;
+}
+
+function saveReview(form) {
+  const rows = readReviewSheet(form);
+  closeSheet();
+
+  if (rows.length === 0) {
+    render();
+    showToast('Nothing ticked — nothing added.');
+    return;
+  }
+
+  for (const row of rows) {
+    state.expenses = insert(row, state.expenses).expenses;
+  }
+  state.lastAction = { type: 'insert', ids: rows.map((row) => row.id) };
+  persistExpenses();
+  render();
+
+  const label = rows.length === 1
+    ? `Added ${format(rows[0].amount, rows[0].currencyCode)}.`
+    : `Added ${rows.length} purchases.`;
+  showToast(label, [{ label: 'Undo', run: undoLast }]);
+}
+
+/**
+ * Picture in, purchases out.
+ *
+ * Kept off the render path deliberately: the photo picker backgrounds Safari,
+ * and on the way back a re-rendered file input would have lost its handler —
+ * the same trap the card automation fell into. The input lives in the page
+ * shell and the File is captured before anything redraws.
+ */
+async function scanScreenshot(file) {
+  if (!state.apiKey) {
+    go('settings');
+    render();
+    showToast('Paste your Anthropic API key first.');
+    return;
+  }
+
+  state.scanning = true;
+  render();
+
+  try {
+    const image = await prepareScreenshot(file);
+    const { drafts, skipped } = await readScreenshot({
+      ...image,
+      apiKey: state.apiKey,
+      currencyCode: state.settings.currencyCode,
+      now: new Date()
+    });
+
+    state.scanning = false;
+    render();
+
+    if (drafts.length === 0) {
+      showToast(skipped > 0
+        ? 'Found notifications, but no amount readable in any of them.'
+        : 'No purchases in that screenshot.');
+      return;
+    }
+    openReviewSheet(drafts);
+  } catch (error) {
+    state.scanning = false;
+    render();
+    showToast(error?.message ?? 'That screenshot could not be read.');
+  }
+}
+
+function pickScreenshot() {
+  const picker = document.getElementById('screenshot-file');
+  if (!picker) return;
+  picker.onchange = () => {
+    const file = picker.files?.[0];
+    picker.value = '';
+    if (file) scanScreenshot(file);
+  };
+  picker.click();
 }
 
 // MARK: - Events
@@ -703,7 +927,10 @@ function onClick(event) {
       break;
     }
     case 'close-sheet':
-      closeEditor();
+      closeSheet();
+      break;
+    case 'scan':
+      pickScreenshot();
       break;
     case 'dismiss-import':
       // Cleared from the Log screen only; Settings keeps the record.
@@ -767,6 +994,22 @@ function onClick(event) {
   }
 }
 
+/**
+ * Return closes the keyboard instead of submitting the review sheet.
+ *
+ * A single-field form should submit on Return — the editor does. But the
+ * review sheet is a dozen fields across several purchases, and committing the
+ * whole batch because you finished typing a merchant name on row two is not
+ * what the key means there.
+ */
+function onSheetKeydown(event) {
+  if (event.key !== 'Enter') return;
+  if (!event.target.closest('[data-form="review"]')) return;
+  if (event.target.tagName !== 'INPUT' || event.target.type === 'checkbox') return;
+  event.preventDefault();
+  event.target.blur();
+}
+
 function onChange(event) {
   const input = event.target.closest('[data-input]');
   if (!input) return;
@@ -792,6 +1035,13 @@ function onChange(event) {
       state.settings.autoSaveConfident = input.checked;
       persistSettings();
       break;
+    case 'anthropicKey': {
+      const key = input.value.trim();
+      state.apiKey = key;
+      if (!saveAPIKey(key)) showToast('Could not save the key — this browser is blocking storage.');
+      render();
+      break;
+    }
     case 'limit': {
       const cents = centsFromDigits(input.value.replace(/[^\d.,]/g, ''));
       if (cents && cents > 0) state.budgets[input.dataset.category] = cents;
@@ -817,6 +1067,11 @@ function onSubmit(event) {
     return;
   }
 
+  if (form.dataset.form === 'review') {
+    saveReview(form);
+    return;
+  }
+
   if (form.dataset.form === 'editor') {
     const edited = readEditor(form);
     if (!edited) {
@@ -824,7 +1079,7 @@ function onSubmit(event) {
       return;
     }
     const { isNew } = state.editing;
-    closeEditor();
+    closeSheet();
 
     if (isNew) {
       const result = insert(edited, state.expenses);
@@ -876,7 +1131,7 @@ function logSentence(text) {
 
   const result = insert(expense, state.expenses);
   state.expenses = result.expenses;
-  state.lastAction = result.merged ? null : { type: 'insert', id: result.row.id };
+  state.lastAction = result.merged ? null : { type: 'insert', ids: [result.row.id] };
   persistExpenses();
   render();
 
@@ -916,16 +1171,19 @@ function correctAmount(id, amount) {
 
 function undoLast() {
   if (state.lastAction?.type !== 'insert') return;
-  state.expenses = state.expenses.filter((row) => row.id !== state.lastAction.id);
+  // One id from a dictated sentence, several from a screenshot; either way
+  // undo takes back exactly what that action put in.
+  const ids = new Set(state.lastAction.ids);
+  state.expenses = state.expenses.filter((row) => !ids.has(row.id));
   state.lastAction = null;
   persistExpenses();
   render();
-  showToast('Removed.');
+  showToast(ids.size === 1 ? 'Removed.' : `Removed ${ids.size} purchases.`);
 }
 
 function deleteEditing() {
   const { expense } = state.editing;
-  closeEditor();
+  closeSheet();
   state.expenses = state.expenses.filter((row) => row.id !== expense.id);
   persistExpenses();
   render();
@@ -1066,6 +1324,18 @@ function showToast(message, actions = []) {
   clearTimeout(toastTimer);
   // Long enough to read and act on an offer to fix a hundred-times error.
   toastTimer = setTimeout(() => { toast.hidden = true; }, actions.length ? 9000 : 3200);
+}
+
+/**
+ * The toast sits above the sheet on purpose — "that amount is not a number"
+ * has to be readable while the editor is open. The cost is that a message
+ * left over from a moment ago hangs over a sheet it has nothing to do with,
+ * so opening one clears it.
+ */
+function hideToast() {
+  clearTimeout(toastTimer);
+  const toast = document.getElementById('toast');
+  if (toast) toast.hidden = true;
 }
 
 function esc(value) {

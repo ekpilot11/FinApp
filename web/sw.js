@@ -7,7 +7,7 @@
 //
 // Bump CACHE when the shell changes so old entries are dropped.
 
-const CACHE = 'finapp-v1';
+const CACHE = 'finapp-v2';
 
 const SHELL = [
   './',
@@ -25,12 +25,14 @@ const SHELL = [
   './js/csv.js',
   './js/dates.js',
   './js/expense-parser.js',
+  './js/image.js',
   './js/ledger.js',
   './js/money.js',
   './js/speech.js',
   './js/spelled-number.js',
   './js/storage.js',
-  './js/text.js'
+  './js/text.js',
+  './js/vision.js'
 ];
 
 self.addEventListener('install', (event) => {

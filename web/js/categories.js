@@ -159,6 +159,12 @@ export function categoryIcon(id) {
 export const SOURCES = {
   manual: { id: 'manual', name: 'Manual', icon: '✏️', automatic: false },
   voice: { id: 'voice', name: 'Voice', icon: '🎙️', automatic: false },
+  // Not automatic, despite a machine having read the pixels: every screenshot
+  // row is confirmed by hand in the review sheet before it is saved, and the
+  // sheet already shows which ones look like something you have. Marking it
+  // automatic would put a second, silent de-duplication after that decision
+  // and quietly swallow the row you just chose to keep.
+  screenshot: { id: 'screenshot', name: 'Screenshot', icon: '📸', automatic: false },
   cardAutomation: { id: 'cardAutomation', name: 'Apple Pay', icon: '💳', automatic: true },
   bankSync: { id: 'bankSync', name: 'Bank', icon: '🏦', automatic: true }
 };

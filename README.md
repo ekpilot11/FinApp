@@ -8,15 +8,17 @@ stays on the device unless you choose to connect a bank.
 
 It exists twice, from one design:
 
-| | Needs | Lasts | Voice | Apple Pay |
-|---|---|---|---|---|
-| **[Web app](docs/WEB.md)** — `web/` | a browser | forever | Safari's dictation | via a Shortcut that opens a link |
-| **iPhone app** — `FinApp/` | Xcode 16 + a Mac, iOS 17+ | 7 days free / 1 year paid | on-device | silently, via an App Intent |
+| | Needs | Lasts | Voice | Apple Pay | Screenshots |
+|---|---|---|---|---|---|
+| **[Web app](docs/WEB.md)** — `web/` | a browser | forever | Safari's dictation | via a Shortcut that opens a link | yes, with your own Anthropic key |
+| **iPhone app** — `FinApp/` | Xcode 16 + a Mac, iOS 17+ | 7 days free / 1 year paid | on-device | silently, via an App Intent | no |
 
 **No Mac? Start with the [web app](docs/WEB.md).** You host it in about a
 minute (GitHub Pages, or Netlify if the repo stays private), install it to the
 iPhone home screen from Safari, and it never expires. It runs the same parser — the same 15 categories, the same money handling,
-the same de-duplication, tested by the same 72 assertions ported across.
+the same de-duplication, tested by the same assertions ported across — and it
+adds one thing the native app never had: **screenshot a stack of bank
+notifications and have Anthropic read every purchase out of it at once**.
 
 ## What it does
 
@@ -29,6 +31,10 @@ the same de-duplication, tested by the same 72 assertions ported across.
   I spent this month in FinApp?"* — no setup needed.
 - **Apple Pay auto-logging.** A Shortcuts automation logs card taps the moment
   they happen. See below.
+- **Screenshots** *(web app)*. Your bank's notifications pile up on the lock
+  screen and nothing on iOS may read them. Screenshot them instead: Anthropic's
+  API reads every purchase in the picture and hands back a list you check over
+  before anything is saved. Needs your own API key; off until you add one.
 - **Bank sync.** Optional. Pulls in card and account transactions, including the
   physical card and direct debits.
 - **Spending view.** Monthly total, daily bars, category breakdown, budget
@@ -41,7 +47,7 @@ the same de-duplication, tested by the same 72 assertions ported across.
 
 ```bash
 cd web
-npm test          # 72 tests, no packages to install
+npm test          # 109 tests, no packages to install
 npx http-server . # then open http://localhost:8080
 ```
 
