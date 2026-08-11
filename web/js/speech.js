@@ -17,6 +17,39 @@ export function isSupported() {
   return typeof Recognition === 'function';
 }
 
+/**
+ * Browsers where the microphone will appear and then do nothing.
+ *
+ * Every browser on iOS is Safari underneath — Apple requires WebKit, and as of
+ * 2026 nobody has shipped an alternative engine even where the EU permits one.
+ * So Chrome, Firefox and Edge on an iPhone render this app identically. What
+ * they do not get is dictation: in a non-Safari web view
+ * `webkitSpeechRecognition` is still *exposed* but never delivers a result
+ * (WebKit bug 239816). Feature detection therefore answers yes and the button
+ * is dead, which is the worst of the three possible answers.
+ *
+ * Hence the one user-agent sniff in this codebase. It only warns — the button
+ * stays live, because a sniff that is wrong should cost a sentence of text,
+ * not a working feature.
+ *
+ * @returns {string|null} what to warn about, or null when there is nothing to say.
+ */
+export function dictationCaveat(userAgent = globalThis.navigator?.userAgent ?? '') {
+  // These tokens exist only on iOS; the desktop builds of the same browsers
+  // are real Chrome and real Firefox, where dictation works properly.
+  const shell = /\b(CriOS|FxiOS|EdgiOS|OPiOS|DuckDuckGo)\b/.exec(userAgent);
+  if (!shell) return null;
+
+  const name = {
+    CriOS: 'Chrome', FxiOS: 'Firefox', EdgiOS: 'Edge',
+    OPiOS: 'Opera', DuckDuckGo: 'DuckDuckGo'
+  }[shell[1]];
+
+  return `Dictation does not work in ${name} on iPhone — iOS only gives the microphone`
+    + ' to Safari itself. Everything else here works the same; type the sentence below,'
+    + ' or use a screenshot.';
+}
+
 /** Languages the recogniser is offered. Parsing is English-only — see docs. */
 export const LANGUAGES = [
   { tag: 'en-US', label: 'English (US)' },

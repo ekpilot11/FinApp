@@ -24,6 +24,9 @@ to be read (section 5).
 **Given up**
 
 - **Siri.** "Hey Siri, log an expense" only works for installed apps.
+- **Dictation outside Safari.** iOS gives the microphone to Safari alone, so
+  voice is unavailable in Chrome, Firefox and Edge on an iPhone. Everything
+  else in FinApp works there.
 - **Silent Apple Pay logging.** The native version could log a card tap in the
   background. Here the automation has to open the page — a second of Safari,
   then it is logged. See below.
@@ -110,8 +113,7 @@ build command, publish directory `web`.
 
 ## 2. Put it on your home screen
 
-On your iPhone, in **Safari** (not Chrome — only Safari can install web apps
-on iOS):
+Do this in **Safari** — see the note on other browsers below.
 
 1. Open the address from step 1.
 2. Tap the **Share** button (the square with the arrow).
@@ -123,6 +125,32 @@ browser chrome, and it works with no signal.
 
 The first time you tap the microphone, iOS asks for permission. Say yes. If
 you refuse by accident: **Settings → Safari → Microphone**.
+
+### Using Chrome, Firefox or Edge instead
+
+Every browser on iOS is Safari underneath: Apple requires WebKit, and as of
+2026 nobody ships an alternative engine even where the EU permits one. So
+FinApp looks and behaves identically in Chrome, and typing, screenshots,
+totals, budgets, CSV and backups all work exactly the same.
+
+Two things do not carry over:
+
+- **Dictation.** iOS gives the microphone to Safari and to nothing else. In a
+  third-party browser `webkitSpeechRecognition` is still *exposed* but never
+  returns a result ([WebKit bug 239816][webkit239816]), so feature detection
+  says yes and the button does nothing. FinApp checks the browser and says so
+  under the microphone rather than letting you tap a dead control. Typing the
+  same sentence runs the same parser, and screenshots are unaffected.
+- **Your ledger.** Each browser gets its own storage, so Chrome starts empty.
+  Move it across with **Settings → Download backup** in Safari, then **Restore
+  backup** in Chrome. The Anthropic key is stored separately and deliberately
+  left out of backups, so paste that in again by hand.
+
+Adding to the home screen works from Chrome too (iOS 16.4 and later). What you
+get is an iOS web app, not a Chrome tab — and it has *its own* storage again,
+separate from both browsers, so it needs the same backup-and-restore.
+
+[webkit239816]: https://bugs.webkit.org/show_bug.cgi?id=239816
 
 ---
 
@@ -327,7 +355,7 @@ web/
     vision.js            the screenshot reader: request, reply, error text
     image.js             downscale + re-encode before sending
     money.js  dates.js  text.js  charts.js  csv.js  speech.js
-  tests/              109 tests, run by Node
+  tests/              116 tests, run by Node
 ```
 
 Run the tests on Windows, macOS or Linux with Node 20 or newer:

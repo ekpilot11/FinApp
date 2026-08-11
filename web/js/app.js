@@ -19,7 +19,9 @@ import {
 } from './ledger.js';
 import { prepareScreenshot } from './image.js';
 import { decimalStringFromCents, format } from './money.js';
-import { Dictation, LANGUAGES, isSupported as speechIsSupported } from './speech.js';
+import {
+  Dictation, LANGUAGES, dictationCaveat, isSupported as speechIsSupported
+} from './speech.js';
 import {
   clearEverything, exportBackup, importBackup, loadAPIKey, loadBudgets, loadExpenses,
   loadLastImport, loadSettings, saveAPIKey, saveBudgets, saveExpenses, saveLastImport,
@@ -241,10 +243,15 @@ function logScreen() {
   const todayTotal = total(today, currencyCode);
   const recent = [...state.expenses].sort((left, right) => right.date - left.date).slice(0, 6);
 
-  const micNote = speechIsSupported()
-    ? `<p class="hint">Tap and say it in one breath — <em>“twelve fifty on coffee at Starbucks yesterday”</em>.</p>`
-    : `<p class="hint hint--warn">This browser has no voice input — on iPhone, open FinApp
-       in Safari. Typing the same sentence below runs through exactly the same parser.</p>`;
+  // Three states, not two: "works", "is not here at all", and the nastier
+  // "is here but will not work", which is every non-Safari browser on iOS.
+  const caveat = dictationCaveat();
+  const micNote = !speechIsSupported()
+    ? `<p class="hint hint--warn">This browser has no voice input — on iPhone, open FinApp
+       in Safari. Typing the same sentence below runs through exactly the same parser.</p>`
+    : caveat
+      ? `<p class="hint hint--warn">${esc(caveat)}</p>`
+      : `<p class="hint">Tap and say it in one breath — <em>“twelve fifty on coffee at Starbucks yesterday”</em>.</p>`;
 
   return `
     ${importReport(state.lastImport, { dismissable: true })}
