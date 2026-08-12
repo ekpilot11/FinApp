@@ -165,7 +165,10 @@ export const SOURCES = {
   // automatic would put a second, silent de-duplication after that decision
   // and quietly swallow the row you just chose to keep.
   screenshot: { id: 'screenshot', name: 'Screenshot', icon: '📸', automatic: false },
-  cardAutomation: { id: 'cardAutomation', name: 'Apple Pay', icon: '💳', automatic: true },
+  // The id is persisted and stays as it is. The label covers both automations
+  // that feed it: the Apple Pay transaction trigger and, since iOS 27, the
+  // bank's own purchase notification — "Apple Pay" was wrong for the second.
+  cardAutomation: { id: 'cardAutomation', name: 'Card', icon: '💳', automatic: true },
   bankSync: { id: 'bankSync', name: 'Bank', icon: '🏦', automatic: true }
 };
 

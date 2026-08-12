@@ -7,7 +7,7 @@
 //
 // Bump CACHE when the shell changes so old entries are dropped.
 
-const CACHE = 'finapp-v2';
+const CACHE = 'finapp-v3';
 
 const SHELL = [
   './',
@@ -28,6 +28,7 @@ const SHELL = [
   './js/image.js',
   './js/ledger.js',
   './js/money.js',
+  './js/notification-parser.js',
   './js/speech.js',
   './js/spelled-number.js',
   './js/storage.js',

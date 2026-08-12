@@ -36,13 +36,16 @@ to be read (section 5).
 - **Storage is the browser's.** "Clear website data" in Safari erases the
   ledger. Take a backup now and then — there is a button for it.
 
-**Neither, quite**
+**Gained since, and only here**
 
-- **Reading your bank's notifications.** No app or website on iOS can, and the
-  native version could not either. What the web version adds is the next best
-  thing: screenshot them and have Anthropic read the whole day's worth at
-  once. Costs a few cents and sends the picture off the phone, so it is off
-  until you paste in a key. Section 5.
+- **Reading your bank's notifications.** iOS 27 added a Shortcuts trigger that
+  fires on another app's notification and hands over its text. FinApp reads the
+  amount and the shop straight out of your bank's alert — which Apple Wallet
+  never carried for anything but Apple Card. Section 4a.
+- **Screenshots.** For a day you logged nothing: screenshot the stack of
+  notifications and Anthropic reads every purchase out of the picture at once.
+  Costs a few cents and sends the image off the phone, so it is off until you
+  paste in a key. Section 5.
 
 Everything else is the same code, decision for decision: the same parser, the
 same categories, the same de-duplication, the same tests.
@@ -181,15 +184,74 @@ exactly the same parser.
 
 ---
 
-## 4. Apple Pay purchases, logged automatically
+## 4. Card purchases, logged automatically
 
-**No app and no website can read Apple Wallet.** Apple publishes no API for
-transaction history; anything claiming otherwise is reading your bank, not
-your Wallet.
+There are two automations that can feed FinApp. **Start with the first one** —
+it is the one that carries the amount.
 
-What iOS does offer is a **Transaction** automation in the Shortcuts app,
-which fires the moment a card in Wallet is used. It can open a URL, and FinApp
-logs whatever the URL carries.
+### 4a. From your bank's notification (iOS 27)
+
+Until iOS 27, nothing on iOS could read another app's notifications. iOS 27
+added a **When I receive a notification from** automation trigger that hands
+the notification's Title, Subtitle and Body to the automation as **Shortcut
+Input** — and it runs in the background, even locked.
+
+That is the piece this project was missing. Your bank's alert already contains
+the amount and the shop; Apple Wallet never did for anything but Apple Card and
+Apple Cash.
+
+1. **FinApp → Settings → Card automations** → **Copy address** under *From your
+   bank's notification*. You get:
+
+   ```
+   https://your-site/?add=1&text=NOTIFICATION
+   ```
+
+2. **Shortcuts** → **Automation** → **+** → **When I receive a notification
+   from** → pick your bank's app.
+3. Optionally add a filter — **Message contains** `Compra aprovada`, or
+   whatever your bank writes on a purchase — so balance and marketing alerts do
+   not trigger it. FinApp refuses those anyway, but filtering saves the trip.
+4. Choose **Run Immediately**.
+5. Add the action **Open URLs** and paste the address.
+6. Delete the word `NOTIFICATION`, and with the cursor there choose **Select
+   Variable → Shortcut Input → Body**. If your bank puts the amount in the
+   subtitle, pass those pieces instead — FinApp also accepts
+   `?add=1&title=…&subtitle=…&body=…`.
+7. **Done**.
+
+Next purchase, FinApp opens with the amount and shop already read out of the
+message. What it does with it:
+
+- **Amount and shop both found** → logged, and the panel shows what the bank
+  said.
+- **Amount but no shop** → the editor opens pre-filled so you finish it, rather
+  than filing a nameless row.
+- **Not a purchase** (a balance, a bill, a login code) → refused, and it says
+  so. Nothing is logged.
+- **No readable amount** → it says so and offers **Say it** / **Type it**.
+
+Keep `text` as the *last* parameter in the URL. A notification body can contain
+an `&`, and FinApp treats anything after it that is not a parameter it knows as
+more text — but only if nothing real follows.
+
+**Running both automations is fine.** One purchase produces the same
+fingerprint from either, so the ledger merges them and counts it once.
+
+### 4b. From Apple Pay
+
+**No app or website can read Apple Wallet.** Apple publishes no API for
+transaction history; anything claiming otherwise is reading your bank, not your
+Wallet.
+
+What iOS offers is a **Transaction** automation, which fires the moment a card
+in Wallet is used and can open a URL.
+
+Be warned: **iOS only fills in the amount for Apple Card and Apple Cash.** Every
+other card — including every Brazilian bank card — fires the automation with an
+empty amount. Tested twice on real purchases; both arrived as `R$` with no
+number. So this automation can tell you a card was used and when, and nothing
+more. Section 4a is the one that works.
 
 ### Set it up
 
@@ -354,8 +416,9 @@ web/
     card-import.js       the Shortcuts bridge
     vision.js            the screenshot reader: request, reply, error text
     image.js             downscale + re-encode before sending
+    notification-parser.js  reads your bank's alert (iOS 27 automation)
     money.js  dates.js  text.js  charts.js  csv.js  speech.js
-  tests/              116 tests, run by Node
+  tests/              152 tests, run by Node
 ```
 
 Run the tests on Windows, macOS or Linux with Node 20 or newer:

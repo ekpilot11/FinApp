@@ -6,7 +6,9 @@
 
 import { CATEGORIES, categoryIcon, categoryName, source as sourceInfo } from './categories.js';
 import { categoryDonut, dailyBars, progressBar } from './charts.js';
-import { canonicalSiteURL, expenseFromParams, importParams } from './card-import.js';
+import {
+  canonicalSiteURL, expenseFromParams, importParams, notificationText
+} from './card-import.js';
 import { fileStamp, toCSV } from './csv.js';
 import {
   addMonths, dayInterval, fromDateTimeLocalValue, isSameDay,
@@ -35,6 +37,16 @@ const COMMON_CURRENCIES = [
   'ZAR', 'AED', 'TRY', 'KRW', 'SGD'
 ];
 
+/**
+ * How sure the notification parser has to be before a purchase is filed
+ * without being seen.
+ *
+ * Set so that an amount *and* a merchant files itself, and an amount on its
+ * own opens the editor. A row with no merchant is not wrong, but it is not
+ * something you will recognise in a list next week either.
+ */
+const NOTIFICATION_THRESHOLD = 0.85;
+
 const state = {
   expenses: [],
   settings: loadSettings(),
@@ -48,7 +60,8 @@ const state = {
   lastImport: null,
   apiKey: '',
   scanning: false,
-  review: null
+  review: null,
+  pendingReview: null
 };
 
 const dictation = new Dictation();
@@ -77,6 +90,19 @@ function boot() {
   document.getElementById('sheet').addEventListener('keydown', onSheetKeydown);
 
   render();
+
+  // After the first render, so the editor opens over a drawn screen rather
+  // than a blank one.
+  if (state.pendingReview) {
+    const expense = state.pendingReview;
+    state.pendingReview = null;
+    openEditor(expense, {
+      isNew: true,
+      warning: 'Read from your bank\'s notification, but the shop name did not come through. '
+        + 'Check it and save.'
+    });
+  }
+
   registerServiceWorker();
 }
 
@@ -109,7 +135,8 @@ function handleImportRequest() {
     amount: params.get('amount') ?? '',
     merchant: params.get('merchant') ?? '',
     currency: params.get('currency') ?? '',
-    id: params.get('id') ?? ''
+    id: params.get('id') ?? '',
+    text: notificationText(params)
   };
 
   const fields = expenseFromParams(params, { defaultCurrency: state.settings.currencyCode });
@@ -118,6 +145,25 @@ function handleImportRequest() {
 
   if (!fields) {
     recordImport({ ...received, outcome: 'rejected' });
+    return;
+  }
+
+  // A notification that was never about spending — a balance, a bill due, a
+  // login code. Recorded so the automation's filter can be tightened, but not
+  // dressed up as a purchase you failed to log.
+  if (fields.rejected) {
+    recordImport({ ...received, outcome: fields.reason === 'notAPurchase' ? 'ignored' : 'unreadable' });
+    return;
+  }
+
+  // Read from a notification, but not cleanly enough to file unseen — usually
+  // the amount arrived without a merchant. Opens the editor with what it got
+  // rather than saving a nameless row or throwing the amount away.
+  const readable = fields.confidence === undefined
+    || (fields.confidence >= NOTIFICATION_THRESHOLD && state.settings.autoSaveConfident);
+  if (!readable) {
+    recordImport({ ...received, outcome: 'needsReview' });
+    state.pendingReview = makeExpense(fields);
     return;
   }
 
@@ -153,7 +199,53 @@ function importReport(record, { dismissable }) {
     hour: 'numeric', minute: '2-digit'
   });
 
-  // The interesting case. iOS only fills in transaction details for Apple
+  const heading = (title) => `
+    <h2 class="card__title">${title}
+      ${dismissable ? '<button type="button" class="link" data-action="dismiss-import">Dismiss</button>' : ''}
+    </h2>`;
+
+  const saw = record.text
+    ? `<p class="hint">It said: “${esc(record.text)}”</p>`
+    : '';
+
+  // Not everything a bank sends is a purchase. Saying so plainly beats both
+  // silence and pretending something failed.
+  if (record.outcome === 'ignored') {
+    return `
+      <section class="card">
+        ${heading(`Ignored a notification at ${esc(time)}`)}
+        <p>This one was not a purchase — a balance, a bill, or a code. Nothing was logged.</p>
+        ${saw}
+        <p class="hint">If it <em>was</em> a purchase, tell me what it said and I will teach
+          FinApp to read it. If notifications like this keep arriving, add a filter to the
+          automation so only purchase alerts trigger it.</p>
+      </section>`;
+  }
+
+  if (record.outcome === 'unreadable') {
+    return `
+      <section class="card">
+        ${heading(`Could not read a notification at ${esc(time)}`)}
+        <p>It looked like a purchase, but no amount could be found in it.</p>
+        ${saw}
+        <div class="row-actions">
+          <button type="button" class="button button--primary" data-action="prompt-voice">Say it</button>
+          <button type="button" class="button" data-action="prompt-type">Type it</button>
+        </div>
+      </section>`;
+  }
+
+  if (record.outcome === 'needsReview') {
+    return `
+      <section class="card">
+        ${heading(`Checked a purchase at ${esc(time)}`)}
+        <p>The amount came through but the shop name did not, so it opened for you to
+          finish rather than saving on its own.</p>
+        ${saw}
+      </section>`;
+  }
+
+  // The old Apple Pay case. iOS only fills in transaction details for Apple
   // Card and Apple Cash; every other card in Wallet fires the automation and
   // hands over an empty amount — here, the bare currency symbol "R$". That
   // cannot be fixed from this side, so the automation gets repurposed: it
@@ -183,14 +275,11 @@ function importReport(record, { dismissable }) {
 
   return `
     <section class="card">
-      <h2 class="card__title">
-        Last card purchase
-        ${dismissable ? '<button type="button" class="link" data-action="dismiss-import">Dismiss</button>' : ''}
-      </h2>
+      ${heading('Last card purchase')}
       <p><strong>${headline}</strong></p>
       <p class="hint">${esc(when)}</p>
-      <p class="hint">Received — amount: ${quote(record.amount)},
-        merchant: ${quote(record.merchant)}${record.currency ? `, currency: ${quote(record.currency)}` : ''}</p>
+      ${saw || `<p class="hint">Received — amount: ${quote(record.amount)},
+        merchant: ${quote(record.merchant)}${record.currency ? `, currency: ${quote(record.currency)}` : ''}</p>`}
     </section>`;
 }
 
@@ -474,6 +563,10 @@ function settingsScreen() {
   const here = `${window.location.origin}${window.location.pathname}`;
   const canonical = canonicalSiteURL(window.location.href);
   const shortcutURL = `${canonical ?? here}?add=1&amount=AMOUNT&merchant=MERCHANT`;
+  // `text` last on purpose: a notification body can contain an ampersand, and
+  // anything after it that is not a parameter FinApp knows is treated as more
+  // text rather than cutting the merchant off.
+  const notificationURL = `${canonical ?? here}?add=1&text=NOTIFICATION`;
 
   // A per-deploy preview link gets its own storage, so a ledger built here is
   // invisible from the real address. Say so at the top of Settings, before
@@ -561,15 +654,30 @@ function settingsScreen() {
     </section>
 
     <section class="card">
-      <h2 class="card__title">Apple Pay</h2>
-      <p class="hint">No app or website can read Apple Wallet — Apple exposes no API for
-        it. What does work is a Shortcuts <strong>Transaction</strong> automation that
-        opens this address after a card is used:</p>
+      <h2 class="card__title">Card automations</h2>
+
+      <p class="hint"><strong>From your bank's notification</strong> — needs iOS 27.
+        Shortcuts → Automation → <strong>When I receive a notification from</strong> → your
+        bank's app → <strong>Open URLs</strong> with this address, replacing
+        <code>NOTIFICATION</code> with the <strong>Body</strong> of Shortcut Input:</p>
+      <code class="code" id="notification-url">${esc(notificationURL)}</code>
+      <div class="row-actions">
+        <button type="button" class="button" data-action="copy-notification-url">Copy address</button>
+      </div>
+      <p class="hint">This is the one that carries the real amount and shop name. FinApp
+        reads the message, skips anything that is not a purchase, and files it.</p>
+
+      <p class="hint" style="margin-top:18px"><strong>From Apple Pay</strong> — a
+        <strong>Transaction</strong> automation opening this address instead. Only Apple Card
+        and Apple Cash fill in the amount; every other card sends it empty, so this one
+        mostly just tells you a card was used:</p>
       <code class="code" id="shortcut-url">${esc(shortcutURL)}</code>
       <div class="row-actions">
         <button type="button" class="button" data-action="copy-url">Copy address</button>
       </div>
-      <p class="hint">Full walkthrough in <code>docs/WEB.md</code> in the repository.</p>
+
+      <p class="hint">Running both is fine — one purchase gets the same id from either, so
+        it is logged once. Full walkthrough in <code>docs/WEB.md</code>.</p>
     </section>
 
     ${importReport(loadLastImport(), { dismissable: false })}
@@ -983,6 +1091,9 @@ function onClick(event) {
     case 'copy-url':
       copyShortcutURL();
       break;
+    case 'copy-notification-url':
+      copyShortcutURL('notification-url');
+      break;
     case 'export-csv':
       download(`FinApp-${fileStamp()}.csv`, toCSV(state.expenses), 'text/csv');
       break;
@@ -1296,8 +1407,8 @@ function eraseEverything() {
   showToast('Everything erased.');
 }
 
-async function copyShortcutURL() {
-  const text = document.getElementById('shortcut-url')?.textContent ?? '';
+async function copyShortcutURL(id = 'shortcut-url') {
+  const text = document.getElementById(id)?.textContent ?? '';
   try {
     await navigator.clipboard.writeText(text);
     showToast('Address copied.');

@@ -20,6 +20,7 @@ import { classify, normalize } from './category-classifier.js';
 import { centsFromDigits } from './expense-parser.js';
 import { parseIncomingDate } from './dates.js';
 import { decimalStringFromCents } from './money.js';
+import { readNotification } from './notification-parser.js';
 
 /**
  * A synthetic id for automations that cannot supply a real one.
@@ -82,15 +83,77 @@ export function importParams(href) {
     return null;
   }
 
-  if (url.searchParams.has('amount')) return url.searchParams;
+  if (carriesImport(url.searchParams)) return withRawText(url.searchParams, url.search);
 
   const hash = url.hash.startsWith('#') ? url.hash.slice(1) : url.hash;
   const separator = hash.indexOf('?');
   if (separator !== -1) {
-    const params = new URLSearchParams(hash.slice(separator + 1));
-    if (params.has('amount')) return params;
+    const query = hash.slice(separator + 1);
+    const params = new URLSearchParams(query);
+    if (carriesImport(params)) return withRawText(params, query);
   }
   return null;
+}
+
+/** Everything a request can arrive as, so an unknown key is not mistaken for text. */
+const KNOWN_PARAMS = new Set([
+  'add', 'amount', 'merchant', 'currency', 'note', 'date', 'id', 'category',
+  'text', 'title', 'subtitle', 'body'
+]);
+
+function carriesImport(params) {
+  return params.has('amount') || params.has('text')
+    || params.has('body') || params.has('title') || params.has('subtitle');
+}
+
+/**
+ * Puts an `&` inside the notification text back where it belongs.
+ *
+ * Shortcuts drops a notification's Body into the URL as-is, and a message like
+ * "Compra aprovada & estorno" then reads as the start of a new parameter, so
+ * the merchant vanishes and only the front half of the text survives. Anything
+ * following `text=` that is not a parameter FinApp knows about was never a
+ * parameter — it is the rest of the sentence.
+ */
+function withRawText(params, query) {
+  const marker = /(?:^|[?&])text=/.exec(query);
+  if (!marker) return params;
+
+  const tail = query.slice(marker.index + marker[0].length);
+  const rejoined = tail.split('&').reduce((kept, piece, index) => {
+    if (index === 0) return piece;
+    const key = piece.split('=')[0].toLowerCase();
+    // A real parameter ends the text; anything else was part of it.
+    return KNOWN_PARAMS.has(key) ? kept : `${kept}&${piece}`;
+  }, '');
+
+  if (rejoined === tail.split('&')[0]) return params;
+
+  // Decoded by hand rather than through URLSearchParams, which would split on
+  // the very ampersand this function just put back.
+  try {
+    params.set('text', decodeURIComponent(rejoined.replace(/\+/g, ' ')));
+  } catch {
+    params.set('text', rejoined.replace(/\+/g, ' '));
+  }
+  return params;
+}
+
+/**
+ * The notification text a request carries, however the automation spelled it.
+ *
+ * iOS 27 hands over Title, Subtitle and Body as three separate pieces of
+ * Shortcut Input. Users wire up whichever ones their bank actually fills in,
+ * so all three are accepted and joined in reading order.
+ */
+export function notificationText(params) {
+  const direct = (params.get('text') ?? '').trim();
+  if (direct) return direct;
+
+  return ['title', 'subtitle', 'body']
+    .map((key) => (params.get(key) ?? '').trim())
+    .filter(Boolean)
+    .join(' — ');
 }
 
 /**
@@ -103,6 +166,7 @@ export function importParams(href) {
  */
 export function expenseFromParams(params, context) {
   const rawAmount = (params.get('amount') ?? '').trim();
+  if (!rawAmount) return expenseFromNotification(params, context);
   // Shortcuts hands over whatever the card formatted: "4.75", "R$ 4,75",
   // "-4.75" for a refund. Strip everything that is not a number or separator
   // and let the parser's separator logic work out which is which.
@@ -128,5 +192,43 @@ export function expenseFromParams(params, context) {
     category: params.get('category') ?? classify(`${merchant} ${note}`, merchant || null),
     source: 'cardAutomation',
     externalID: suppliedID || fingerprint(amount, merchant, date)
+  };
+}
+
+/**
+ * The same thing, from a notification the bank sent.
+ *
+ * Shares `fingerprint` with the Apple Pay path on purpose. If both automations
+ * are switched on they fire for one purchase and produce the same id, so the
+ * ledger merges them instead of counting the coffee twice.
+ *
+ * @returns {object|null} fields for `makeExpense`, or null when the text held
+ *   no purchase — plus `reason` and `confidence` on the returned object so the
+ *   caller can tell "not a purchase" from "could not read it".
+ */
+export function expenseFromNotification(params, context) {
+  const text = notificationText(params);
+  if (!text) return null;
+
+  const reading = readNotification(text, { defaultCurrency: context.defaultCurrency });
+  if (!reading.ok) return { rejected: true, reason: reading.reason, text };
+
+  const date = parseIncomingDate(params.get('date')) ?? context.now ?? new Date();
+  const merchant = (params.get('merchant') ?? '').trim() || reading.merchant;
+  const suppliedID = (params.get('id') ?? '').trim();
+
+  return {
+    amount: reading.amount,
+    currencyCode: reading.currencyCode,
+    merchant,
+    // The message itself is worth keeping: it is the only record of what the
+    // bank actually said, and the first thing to look at when a row is wrong.
+    note: text,
+    date,
+    category: params.get('category') ?? reading.category,
+    source: 'cardAutomation',
+    externalID: suppliedID || fingerprint(reading.amount, merchant, date),
+    confidence: reading.confidence,
+    text
   };
 }

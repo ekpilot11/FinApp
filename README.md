@@ -29,8 +29,12 @@ notifications and have Anthropic read every purchase out of it at once**.
   unclear one opens for review rather than guessing.
 - **Siri.** *"Hey Siri, log an expense in FinApp"* and *"Hey Siri, how much have
   I spent this month in FinApp?"* — no setup needed.
-- **Apple Pay auto-logging.** A Shortcuts automation logs card taps the moment
-  they happen. See below.
+- **Card auto-logging.** *(web app, iOS 27)* A Shortcuts automation fires on
+  your bank's own purchase notification and hands FinApp the text; the amount
+  and shop are read straight out of it. Balance alerts and login codes are
+  refused rather than filed as spending. On older iOS, an Apple Pay
+  **Transaction** automation does the same — but only Apple Card and Apple Cash
+  ever fill in the amount.
 - **Screenshots** *(web app)*. Your bank's notifications pile up on the lock
   screen and nothing on iOS may read them. Screenshot them instead: Anthropic's
   API reads every purchase in the picture and hands back a list you check over
@@ -47,7 +51,7 @@ notifications and have Anthropic read every purchase out of it at once**.
 
 ```bash
 cd web
-npm test          # 116 tests, no packages to install
+npm test          # 152 tests, no packages to install
 npx http-server . # then open http://localhost:8080
 ```
 
