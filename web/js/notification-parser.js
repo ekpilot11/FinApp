@@ -57,6 +57,19 @@ const PURCHASE_WORDS = [
   'purchase', 'transaction', 'approved', 'charged', 'spent', 'was used', 'payment of'
 ];
 
+/**
+ * Signs no money moved at all.
+ *
+ * Checked before everything else, because these read as purchases on every
+ * other test: "Compra de R$ 33,50 NÃO APROVADA" contains both "compra" and
+ * "aprovada". A declined purchase filed as spending is money you never spent.
+ */
+const DECLINED_WORDS = [
+  'nao aprovada', 'nao aprovado', 'negada', 'negado', 'recusada', 'recusado',
+  'nao autorizada', 'nao autorizado', 'nao foi aprovada', 'sem saldo',
+  'declined', 'denied', 'not approved', 'was not authorized', 'unauthorized attempt'
+];
+
 /** Signs this is money coming back. */
 const REFUND_WORDS = [
   'estorno', 'estornad', 'cancelad', 'reembols', 'devolv', 'extorno',
@@ -81,19 +94,48 @@ const NOT_A_PURCHASE_WORDS = [
   'promotion', 'offer', 'delivery'
 ];
 
-/** Words that introduce the shop name once the amount has been read. */
-const MERCHANT_LEAD = /^[\s,.;:\-–—]*(?:em|no|na|nos|nas|para|at|in|to|de|do|da)\s+/i;
+/**
+ * The word that introduces the shop name.
+ *
+ * Not anchored to the start, because banks put things between the amount and
+ * the name: "R$ 33,50 APROVADA em Montana Viracopos Camp" has a whole word in
+ * the way. Searched within a short window so that a stray "em" in the sign-off
+ * ("entre em contato com a gente") cannot be mistaken for the real one.
+ */
+const MERCHANT_LEAD = /\b(?:em|no|na|nos|nas|para|at|in|to|de|do|da)\s+/;
+const LEAD_WINDOW = 40;
+
+/** "R$ 30,00 - RENNER": some banks use a dash where others use a word. */
+const MERCHANT_DASH = /^\s*[-–—|:]\s*/;
 
 /**
- * Everything after the merchant that is not the merchant: instalment counts,
- * card tails, dates, the running limit.
+ * Everything after the shop name that is not the shop name.
+ *
+ * Matched against the folded text so "às 21:02" is caught by a plain `as`.
+ * `fold` preserves length, so an index found here still points at the right
+ * character in the original — which is what keeps the accents in "CAFÉ SÃO
+ * PAULO" while still cutting at the right place.
  */
-const MERCHANT_TAIL = /\s*(?:[-–—|]\s*)?(?:parcela|parc\.|installment|em \d+x|\d+\s*\/\s*\d+|cartao|cart[aã]o|final|ending|limite|saldo|as \d|em \d{2}\/|\bhoje\b|\bontem\b)\b.*$/i;
+const MERCHANT_TAILS = [
+  /[\s,;]*\bas \d{1,2}[:h]\d{2}/,
+  /[\s,;]*\b(?:no |na |em )?cartao\b/,
+  /[\s,;]*\b(?:final|ending)\b/,
+  /[\s,;]*\b(?:parcela|parc\.|installment|em \d+x)\b/,
+  /[\s,;]*\b\d+\s*\/\s*\d+/,
+  /[\s,;]*\b(?:limite|saldo|duvidas|fatura)\b/,
+  /[\s,;]*\bem \d{2}\//,
+  /[\s,;]*\b(?:hoje|ontem)\b/,
+  /\.\s/,
+  /[\n\r]/
+];
+
+/** "às 21:02" — the moment the bank says it happened. */
+const TIME = /\b(?:as|at)\s*(\d{1,2})[:h](\d{2})\b|\b(\d{1,2}):(\d{2})\b/;
 
 /**
  * @typedef {object} NotificationReading
  * @property {boolean} ok
- * @property {'notAPurchase'|'noAmount'} [reason]
+ * @property {'notAPurchase'|'noAmount'|'declined'} [reason]
  * @property {number} [amount] signed cents — negative for a refund
  * @property {string} [currencyCode]
  * @property {string} [merchant]
@@ -116,6 +158,10 @@ export function readNotification(raw, { defaultCurrency = 'USD' } = {}) {
   // the folded string is still valid in the original — which is what lets the
   // merchant be sliced out of the text the user actually saw, accents intact.
   const folded = fold(text).toLowerCase();
+
+  if (DECLINED_WORDS.some((word) => folded.includes(word))) {
+    return { ok: false, reason: 'declined' };
+  }
 
   const isRefund = REFUND_WORDS.some((word) => folded.includes(word));
   const looksLikeSpending = isRefund || PURCHASE_WORDS.some((word) => folded.includes(word));
@@ -143,6 +189,7 @@ export function readNotification(raw, { defaultCurrency = 'USD' } = {}) {
     merchant,
     isRefund,
     category: classify(merchant, merchant || null),
+    time: extractTime(folded),
     confidence: Math.min(confidence, 1)
   };
 }
@@ -199,21 +246,54 @@ function firstSpendAmount(text, folded, defaultCurrency) {
  * word, the name, then a tail of things that are not the name.
  */
 function extractMerchant(text, amountEnd) {
-  let rest = text.slice(amountEnd);
+  const after = text.slice(amountEnd);
+  const foldedAfter = fold(after).toLowerCase();
 
-  const lead = MERCHANT_LEAD.exec(rest);
-  // Without a lead-in word this is as likely to be "aprovada" as a shop name.
-  if (!lead) return '';
-  rest = rest.slice(lead[0].length);
+  let start;
+  const dash = MERCHANT_DASH.exec(after);
+  const lead = MERCHANT_LEAD.exec(foldedAfter);
 
-  rest = rest.split(/[\n\r]|(?<=\.)\s/)[0];
-  rest = rest.replace(MERCHANT_TAIL, '');
-  rest = rest.replace(/[\s,.;:\-–—]+$/, '').trim();
+  if (lead && lead.index < LEAD_WINDOW) {
+    start = lead.index + lead[0].length;
+  } else if (dash) {
+    start = dash[0].length;
+  } else {
+    // Nothing introduces a name here, and guessing produces "aprovada".
+    return '';
+  }
 
+  const body = after.slice(start);
+  const foldedBody = foldedAfter.slice(start);
+
+  let end = body.length;
+  for (const pattern of MERCHANT_TAILS) {
+    const match = pattern.exec(foldedBody);
+    if (match && match.index < end) end = match.index;
+  }
+
+  let name = body.slice(0, end).replace(/[\s,.;:\-–—]+$/, '').trim();
   // Company-registry noise nobody thinks of as the shop's name.
-  rest = rest.replace(/\s+(ltda|me|epp|eireli|s\.?\/?a|inc|llc)\.?$/i, '').trim();
+  name = name.replace(/\s+(ltda|me|epp|eireli|s\.?\/?a|inc|llc)\.?$/i, '').trim();
 
   // A whole sentence is not a merchant; something went wrong upstream.
-  if (rest.split(' ').length > 6 || rest.length > 48) return '';
-  return rest;
+  if (name.split(' ').length > 6 || name.length > 48) return '';
+  return name;
+}
+
+/**
+ * The clock time the bank quoted, as {hours, minutes}.
+ *
+ * Worth having because the notification and the purchase are not always the
+ * same moment — the alert can arrive late, or sit on the lock screen until you
+ * unlock. Filing the purchase at 21:02 rather than whenever FinApp happened to
+ * open puts it in the right place on the daily chart.
+ */
+function extractTime(folded) {
+  const match = TIME.exec(folded);
+  if (!match) return null;
+
+  const hours = Number(match[1] ?? match[3]);
+  const minutes = Number(match[2] ?? match[4]);
+  if (!Number.isInteger(hours) || hours > 23 || minutes > 59) return null;
+  return { hours, minutes };
 }

@@ -152,7 +152,8 @@ function handleImportRequest() {
   // login code. Recorded so the automation's filter can be tightened, but not
   // dressed up as a purchase you failed to log.
   if (fields.rejected) {
-    recordImport({ ...received, outcome: fields.reason === 'notAPurchase' ? 'ignored' : 'unreadable' });
+    const outcome = { notAPurchase: 'ignored', declined: 'declined' }[fields.reason] ?? 'unreadable';
+    recordImport({ ...received, outcome });
     return;
   }
 
@@ -219,6 +220,15 @@ function importReport(record, { dismissable }) {
         <p class="hint">If it <em>was</em> a purchase, tell me what it said and I will teach
           FinApp to read it. If notifications like this keep arriving, add a filter to the
           automation so only purchase alerts trigger it.</p>
+      </section>`;
+  }
+
+  if (record.outcome === 'declined') {
+    return `
+      <section class="card">
+        ${heading(`A purchase was declined at ${esc(time)}`)}
+        <p>Your bank turned it down, so no money moved and nothing was logged.</p>
+        ${saw}
       </section>`;
   }
 

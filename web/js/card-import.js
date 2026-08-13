@@ -196,6 +196,23 @@ export function expenseFromParams(params, context) {
 }
 
 /**
+ * Today, at the time the notification quoted.
+ *
+ * The guard is for the purchase just before midnight whose alert is read just
+ * after it: 23:50 applied to the new day would put the coffee a day early and
+ * in the wrong month twelve times a year. A quoted time in the future means it
+ * belongs to yesterday.
+ */
+function atQuotedTime(time, now) {
+  if (!time) return now;
+
+  const dated = new Date(now);
+  dated.setHours(time.hours, time.minutes, 0, 0);
+  if (dated.getTime() > now.getTime() + 60 * 60 * 1000) dated.setDate(dated.getDate() - 1);
+  return dated;
+}
+
+/**
  * The same thing, from a notification the bank sent.
  *
  * Shares `fingerprint` with the Apple Pay path on purpose. If both automations
@@ -213,7 +230,8 @@ export function expenseFromNotification(params, context) {
   const reading = readNotification(text, { defaultCurrency: context.defaultCurrency });
   if (!reading.ok) return { rejected: true, reason: reading.reason, text };
 
-  const date = parseIncomingDate(params.get('date')) ?? context.now ?? new Date();
+  const supplied = parseIncomingDate(params.get('date'));
+  const date = supplied ?? atQuotedTime(reading.time, context.now ?? new Date());
   const merchant = (params.get('merchant') ?? '').trim() || reading.merchant;
   const suppliedID = (params.get('id') ?? '').trim();
 

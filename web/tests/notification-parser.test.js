@@ -44,6 +44,91 @@ describe('readNotification — Portuguese purchases', () => {
   });
 });
 
+// Copied character for character off the lock screen, accents, caps, sign-off
+// and all. Every other case in this file is a guess; this one is evidence.
+const REAL = {
+  title: 'Compra no crédito aprovada',
+  body: 'Compra de R$ 33,50 APROVADA em Montana Viracopos Camp, às 21:02 no cartão'
+    + ' Master Black final 1114. Dúvidas, entre em contato com a gente'
+};
+
+describe('readNotification — a real notification from the bank', () => {
+  const fromBody = read(REAL.body);
+  const fromBoth = read(`${REAL.title} — ${REAL.body}`);
+
+  it('reads the amount past the card number in the same sentence', () => {
+    assert.equal(fromBody.amount, 3350);
+    assert.equal(fromBoth.amount, 3350);
+  });
+
+  it('finds the shop name even with a word between it and the amount', () => {
+    // "R$ 33,50 APROVADA em Montana…" — the lead-in is not adjacent.
+    assert.equal(fromBody.merchant, 'Montana Viracopos Camp');
+  });
+
+  it('stops the name at the time, not at the sign-off', () => {
+    assert.equal(fromBoth.merchant, 'Montana Viracopos Camp');
+    // "entre em contato com a gente" also contains "em".
+    assert.ok(!fromBody.merchant.includes('contato'));
+  });
+
+  it('keeps the time the bank quoted', () => {
+    assert.deepEqual(fromBody.time, { hours: 21, minutes: 2 });
+  });
+
+  it('is sure enough to file without asking', () => {
+    assert.ok(fromBody.confidence >= 0.85, `confidence was ${fromBody.confidence}`);
+  });
+
+  it('works the same whether you map Body alone or Title and Body', () => {
+    assert.equal(fromBody.amount, fromBoth.amount);
+    assert.equal(fromBody.merchant, fromBoth.merchant);
+  });
+
+  it('files it at the quoted time rather than whenever FinApp opened', () => {
+    const now = new Date(2026, 7, 12, 23, 40);
+    const fields = expenseFromParams(
+      importParams(`https://finapp.example/?add=1&text=${encodeURIComponent(REAL.body)}`),
+      { defaultCurrency: 'BRL', now }
+    );
+    assert.equal(fields.date.getHours(), 21);
+    assert.equal(fields.date.getMinutes(), 2);
+    assert.equal(fields.date.getDate(), 12);
+  });
+
+  it('puts a late-night purchase on the day it happened', () => {
+    // Bought at 23:50, notification read at 00:05. Naively that lands the
+    // purchase a day early — and in the wrong month twelve times a year.
+    const text = REAL.body.replace('às 21:02', 'às 23:50');
+    const now = new Date(2026, 7, 13, 0, 5);
+    const fields = expenseFromParams(
+      importParams(`https://finapp.example/?add=1&text=${encodeURIComponent(text)}`),
+      { defaultCurrency: 'BRL', now }
+    );
+    assert.equal(fields.date.getDate(), 12);
+    assert.equal(fields.date.getHours(), 23);
+  });
+});
+
+describe('readNotification — declines', () => {
+  it('refuses a declined purchase, which reads as approved on every other test', () => {
+    const text = REAL.body.replace('APROVADA', 'NÃO APROVADA');
+    const result = read(text);
+    assert.equal(result.ok, false, 'a declined purchase must not be logged');
+    assert.equal(result.reason, 'declined');
+  });
+
+  for (const wording of ['Compra negada', 'Compra recusada', 'Compra não autorizada']) {
+    it(`refuses “${wording}”`, () => {
+      assert.equal(read(`${wording}: R$ 33,50 em Montana Viracopos Camp`).reason, 'declined');
+    });
+  }
+
+  it('still logs the approval that follows a decline', () => {
+    assert.equal(read('Compra de R$ 33,50 APROVADA em Montana Viracopos Camp').amount, 3350);
+  });
+});
+
 describe('readNotification — the numbers that are not money', () => {
   it('ignores the card number', () => {
     // The trap: "final 1234" is the most common number in these messages.

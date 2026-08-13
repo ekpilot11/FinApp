@@ -220,6 +220,20 @@ Apple Cash.
    `?add=1&title=…&subtitle=…&body=…`.
 7. **Done**.
 
+The parser is written against a real notification, kept in the tests verbatim:
+
+```
+Compra no crédito aprovada
+Compra de R$ 33,50 APROVADA em Montana Viracopos Camp, às 21:02 no cartão
+Master Black final 1114. Dúvidas, entre em contato com a gente
+```
+
+From that it takes **R$ 33,50**, **Montana Viracopos Camp** and **21:02** —
+ignoring `final 1114`, stopping the shop name at the time rather than running
+into the sign-off, and filing the purchase at 21:02 rather than whenever FinApp
+happened to open. A purchase just before midnight whose alert is read just
+after still lands on the day it happened.
+
 Next purchase, FinApp opens with the amount and shop already read out of the
 message. What it does with it:
 
@@ -227,6 +241,9 @@ message. What it does with it:
   said.
 - **Amount but no shop** → the editor opens pre-filled so you finish it, rather
   than filing a nameless row.
+- **Declined** ("não aprovada", "negada", "recusada") → refused. This one
+  matters: a declined purchase says *compra* and *aprovada* in the same
+  sentence, so it reads as a purchase on every other test.
 - **Not a purchase** (a balance, a bill, a login code) → refused, and it says
   so. Nothing is logged.
 - **No readable amount** → it says so and offers **Say it** / **Type it**.
@@ -418,7 +435,7 @@ web/
     image.js             downscale + re-encode before sending
     notification-parser.js  reads your bank's alert (iOS 27 automation)
     money.js  dates.js  text.js  charts.js  csv.js  speech.js
-  tests/              152 tests, run by Node
+  tests/              165 tests, run by Node
 ```
 
 Run the tests on Windows, macOS or Linux with Node 20 or newer:
