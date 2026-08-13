@@ -110,6 +110,38 @@ describe('readNotification — a real notification from the bank', () => {
   });
 });
 
+describe('readNotification — a wider notification filter', () => {
+  // The Shortcuts filter should be "Compra", not "Compra no crédito aprovada":
+  // the narrow one silently drops every debit purchase, and silently dropping
+  // purchases is the failure you cannot notice. Widening it means more kinds
+  // of message reach the parser, so these are the ones that now arrive.
+  it('reads a debit purchase the same as a credit one', () => {
+    const result = read('Compra no débito aprovada — Compra de R$ 87,20 APROVADA em'
+      + ' SUPERMERCADO PAGUE MENOS, às 10:15 no cartão final 1114');
+    assert.equal(result.amount, 8720);
+    assert.equal(result.merchant, 'SUPERMERCADO PAGUE MENOS');
+  });
+
+  it('refuses an advert that says "compra" and carries an amount', () => {
+    // The one that got through: every purchase test passes on this text.
+    const result = read('Compras parceladas — Aproveite compras de até R$ 500,00'
+      + ' sem juros. Oferta válida hoje');
+    assert.equal(result.ok, false, 'an advert must not become a R$ 500 purchase');
+    assert.equal(result.reason, 'notAPurchase');
+  });
+
+  it('refuses a login code even when it mentions a purchase', () => {
+    const result = read('Seu código para autorizar a compra é 448210');
+    assert.equal(result.ok, false);
+  });
+
+  it('still logs a purchase that mentions the invoice or the limit', () => {
+    // These legitimately appear in real alerts, so they must not refuse.
+    assert.equal(read('Compra aprovada R$ 12,90 em PADARIA. Fatura atual R$ 800,00').amount, 1290);
+    assert.equal(read('Compra aprovada R$ 12,90 em PADARIA. Limite disponível R$ 4.812,00').amount, 1290);
+  });
+});
+
 describe('readNotification — declines', () => {
   it('refuses a declined purchase, which reads as approved on every other test', () => {
     const text = REAL.body.replace('APROVADA', 'NÃO APROVADA');

@@ -77,21 +77,38 @@ const REFUND_WORDS = [
 ];
 
 /**
- * Signs this is not a purchase at all.
+ * Never a purchase, whatever else the message happens to say.
  *
- * The iOS 27 trigger can filter on the notification text, so ideally these
- * never reach us. But a filter is one typo from letting everything through,
- * and a balance alert silently filed as a R$ 4.812,00 purchase is exactly the
- * kind of wrong number that hides in a monthly total.
+ * Separate from the list below because of one real message: "Compras
+ * parceladas — aproveite compras de até R$ 500,00 sem juros" says *compra* and
+ * carries an amount, so every purchase test passes and an advert lands in your
+ * spending as R$ 500. Nothing in this list ever appears in a genuine
+ * transaction alert, so it wins outright.
+ */
+const NEVER_A_PURCHASE = [
+  'codigo', 'senha', 'login', 'acesso', 'promocao', 'promocional', 'oferta',
+  'aproveite', 'convite', 'sem juros', 'parceladas',
+  'verification code', 'sign in', 'promotion', 'special offer', 'invite'
+];
+
+/**
+ * Not a purchase unless the message also says it is.
+ *
+ * These *do* legitimately turn up in real alerts — "compra aprovada … fatura
+ * atual R$ 800,00" — so they only refuse when nothing else says spending.
+ *
+ * The iOS 27 trigger can filter on the notification text, so ideally none of
+ * this reaches us. But a filter is one typo from letting everything through,
+ * and a balance alert filed as a R$ 4.812,00 purchase is exactly the kind of
+ * wrong number that hides in a monthly total.
  */
 const NOT_A_PURCHASE_WORDS = [
   'saldo', 'limite disponivel', 'fatura fechada', 'fatura disponivel', 'vencimento',
   'vence em', 'boleto', 'pagamento recebido', 'pix recebido', 'voce recebeu',
-  'transferencia recebida', 'deposito', 'rendimento', 'codigo', 'senha', 'login',
-  'acesso', 'promocao', 'oferta', 'convite', 'atualiz', 'entrega', 'seguro',
+  'transferencia recebida', 'deposito', 'rendimento', 'atualiz', 'entrega', 'seguro',
+  'desconto', 'cashback',
   'balance', 'statement is', 'due', 'payment received', 'you received',
-  'transfer received', 'deposit', 'verification code', 'sign in', 'login',
-  'promotion', 'offer', 'delivery'
+  'transfer received', 'deposit', 'delivery', 'discount'
 ];
 
 /**
@@ -161,6 +178,9 @@ export function readNotification(raw, { defaultCurrency = 'USD' } = {}) {
 
   if (DECLINED_WORDS.some((word) => folded.includes(word))) {
     return { ok: false, reason: 'declined' };
+  }
+  if (NEVER_A_PURCHASE.some((word) => folded.includes(word))) {
+    return { ok: false, reason: 'notAPurchase' };
   }
 
   const isRefund = REFUND_WORDS.some((word) => folded.includes(word));

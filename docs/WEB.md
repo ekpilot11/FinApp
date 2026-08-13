@@ -209,9 +209,14 @@ Apple Cash.
 
 2. **Shortcuts** → **Automation** → **+** → **When I receive a notification
    from** → pick your bank's app.
-3. Optionally add a filter — **Message contains** `Compra aprovada`, or
-   whatever your bank writes on a purchase — so balance and marketing alerts do
-   not trigger it. FinApp refuses those anyway, but filtering saves the trip.
+3. Add a filter so balance and marketing alerts do not open the app. **Title
+   contains** `Compra` works for Sicredi.
+
+   **Keep the filter broad.** `Compra no crédito aprovada` looks tidier and is
+   a trap: it drops every debit purchase, and a purchase you never find out was
+   missed is worse than one you have to correct. Filters on different fields
+   combine with *and*, not *or*, so one wide filter beats two narrow ones — or
+   make a second automation if you want both spelled out.
 4. Choose **Run Immediately**.
 5. Add the action **Open URLs** and paste the address.
 6. Delete the word `NOTIFICATION`, and with the cursor there choose **Select
@@ -244,6 +249,9 @@ message. What it does with it:
 - **Declined** ("não aprovada", "negada", "recusada") → refused. This one
   matters: a declined purchase says *compra* and *aprovada* in the same
   sentence, so it reads as a purchase on every other test.
+- **An advert** ("aproveite compras de até R$ 500 sem juros") → refused. Same
+  trap from the other direction: it says *compra*, it carries an amount, and
+  every purchase test passes on it.
 - **Not a purchase** (a balance, a bill, a login code) → refused, and it says
   so. Nothing is logged.
 - **No readable amount** → it says so and offers **Say it** / **Type it**.
@@ -435,7 +443,7 @@ web/
     image.js             downscale + re-encode before sending
     notification-parser.js  reads your bank's alert (iOS 27 automation)
     money.js  dates.js  text.js  charts.js  csv.js  speech.js
-  tests/              165 tests, run by Node
+  tests/              169 tests, run by Node
 ```
 
 Run the tests on Windows, macOS or Linux with Node 20 or newer:
