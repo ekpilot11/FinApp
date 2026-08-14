@@ -29,6 +29,7 @@ import {
   loadLastImport, loadSettings, saveAPIKey, saveBudgets, saveExpenses, saveLastImport,
   saveSettings
 } from './storage.js';
+import { looksTruncated } from './notification-parser.js';
 import { looksAlreadyLogged, readScreenshot } from './vision.js';
 
 const COMMON_CURRENCIES = [
@@ -233,11 +234,23 @@ function importReport(record, { dismissable }) {
   }
 
   if (record.outcome === 'unreadable') {
+    // Almost always a setup problem rather than a reading problem, and the
+    // difference is visible: one word means the automation cut it off.
+    const truncated = looksTruncated(record.text);
     return `
       <section class="card">
         ${heading(`Could not read a notification at ${esc(time)}`)}
-        <p>It looked like a purchase, but no amount could be found in it.</p>
+        <p>${truncated
+          ? 'Only the first word of the message arrived, so there was nothing to read.'
+          : 'It looked like a purchase, but no amount could be found in it.'}</p>
         ${saw}
+        ${truncated ? `<p class="hint hint--warn">Shortcuts put the notification straight
+          into the address, and an address ends at the first space. Fix it in the
+          automation: add <strong>Replace Text</strong> before <strong>Open URLs</strong>
+          — find <code>" "</code> (one space), replace with <code>%20</code>, input
+          <strong>Shortcut Input → Body</strong> — then use the <em>result of Replace
+          Text</em> in the URL instead of Body. If you can find a <strong>URL
+          Encode</strong> action, that does the same job in one step.</p>` : ''}
         <div class="row-actions">
           <button type="button" class="button button--primary" data-action="prompt-voice">Say it</button>
           <button type="button" class="button" data-action="prompt-type">Type it</button>

@@ -219,11 +219,26 @@ Apple Cash.
    make a second automation if you want both spelled out.
 4. Choose **Run Immediately**.
 5. Add the action **Open URLs** and paste the address.
-6. Delete the word `NOTIFICATION`, and with the cursor there choose **Select
-   Variable → Shortcut Input → Body**. If your bank puts the amount in the
-   subtitle, pass those pieces instead — FinApp also accepts
-   `?add=1&title=…&subtitle=…&body=…`.
-7. **Done**.
+6. **Add a `Replace Text` action before `Open URLs`.** This step is not
+   optional and it is the one everybody misses:
+
+   - **Find** `" "` — a single space
+   - **Replace** `%20`
+   - **Input** — *Shortcut Input → Body*
+
+   Without it the automation looks perfect and delivers one word. Shortcuts
+   pastes the Body into the address exactly as typed, and an address ends at
+   the first space, so `Compra de R$ 10,80 APROVADA em Deltaexpresso…` arrives
+   as `Compra`. FinApp spots that and says so, but the fix is here.
+
+   If you can find a **URL Encode** action in your version, it does the same
+   job in one step and handles more characters.
+
+7. Delete the word `NOTIFICATION`, and with the cursor there choose **Select
+   Variable → Replace Text** (the *result* of step 6 — not Body itself). If
+   your bank puts the amount in the subtitle, pass those pieces instead —
+   FinApp also accepts `?add=1&title=…&subtitle=…&body=…`.
+8. **Done**.
 
 The parser is written against a real notification, kept in the tests verbatim:
 
@@ -443,7 +458,7 @@ web/
     image.js             downscale + re-encode before sending
     notification-parser.js  reads your bank's alert (iOS 27 automation)
     money.js  dates.js  text.js  charts.js  csv.js  speech.js
-  tests/              169 tests, run by Node
+  tests/              174 tests, run by Node
 ```
 
 Run the tests on Windows, macOS or Linux with Node 20 or newer:

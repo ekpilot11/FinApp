@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { readNotification } from '../js/notification-parser.js';
+import { looksTruncated, readNotification } from '../js/notification-parser.js';
 import { expenseFromParams, importParams, notificationText } from '../js/card-import.js';
 
 const read = (text, currency = 'BRL') => readNotification(text, { defaultCurrency: currency });
@@ -139,6 +139,38 @@ describe('readNotification — a wider notification filter', () => {
     // These legitimately appear in real alerts, so they must not refuse.
     assert.equal(read('Compra aprovada R$ 12,90 em PADARIA. Fatura atual R$ 800,00').amount, 1290);
     assert.equal(read('Compra aprovada R$ 12,90 em PADARIA. Limite disponível R$ 4.812,00').amount, 1290);
+  });
+});
+
+describe('looksTruncated', () => {
+  // Seen on the first real run: the panel reported It said: "Compra". Shortcuts
+  // had pasted the Body into the address unencoded, and the address ended at
+  // the first space.
+  it('recognises the first word of a real alert', () => {
+    assert.equal(looksTruncated('Compra'), true);
+  });
+
+  it('does not accuse a whole message', () => {
+    assert.equal(looksTruncated(REAL.body), false);
+    assert.equal(looksTruncated('Compra aprovada'), false);
+  });
+
+  it('does not accuse something carrying a number', () => {
+    // If digits arrived, the address survived the spaces.
+    assert.equal(looksTruncated('R$10,80'), false);
+  });
+
+  it('says nothing about an empty request', () => {
+    assert.equal(looksTruncated(''), false);
+    assert.equal(looksTruncated(undefined), false);
+  });
+
+  it('is what a truncated body actually produces end to end', () => {
+    const params = importParams('https://finapp.example/?add=1&text=Compra');
+    const fields = expenseFromParams(params, { defaultCurrency: 'BRL', now: new Date() });
+    assert.equal(fields.rejected, true);
+    assert.equal(fields.reason, 'noAmount');
+    assert.equal(looksTruncated(fields.text), true);
   });
 });
 

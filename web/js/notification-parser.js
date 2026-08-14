@@ -161,6 +161,24 @@ const TIME = /\b(?:as|at)\s*(\d{1,2})[:h](\d{2})\b|\b(\d{1,2}):(\d{2})\b/;
  */
 
 /**
+ * Did the automation cut the message off at the first space?
+ *
+ * Shortcuts drops the notification's Body into the **Open URLs** field as
+ * typed, and that field is an address: the first space ends it. So a perfectly
+ * configured automation delivers the first word of the alert and nothing else
+ * — "Compra" — and every later step is starved rather than broken. Worth
+ * naming precisely, because "no amount could be found" sends you looking at
+ * the parser when the fix is one action upstream.
+ */
+export function looksTruncated(text) {
+  const trimmed = String(text ?? '').trim();
+  if (!trimmed) return false;
+  // A real alert is a sentence with numbers in it. One short word with no
+  // digits is the front of one.
+  return !/\s/.test(trimmed) && trimmed.length <= 30 && !/\d/.test(trimmed);
+}
+
+/**
  * Reads one notification.
  *
  * @param {string} raw the notification text, or title/subtitle/body joined
