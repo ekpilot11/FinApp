@@ -95,7 +95,52 @@ const BRANDS = [
   // Bills
   ['verizon', 'bills'], ['at&t', 'bills'], ['t-mobile', 'bills'],
   ['vodafone', 'bills'], ['comcast', 'bills'], ['xfinity', 'bills'],
-  ['state farm', 'bills'], ['geico', 'bills']
+  ['state farm', 'bills'], ['geico', 'bills'],
+
+  // Brazil. Every merchant this app will ever see for its author is one of
+  // these or a shop with a Portuguese name, and until now they all landed in
+  // "Other" — which made the whole Spending tab a single grey donut.
+  ['ifood', 'diningOut'], ['rappi', 'diningOut'], ['zé delivery', 'diningOut'],
+  ['ze delivery', 'diningOut'], ['habib', 'diningOut'], ['bob s', 'diningOut'],
+  ['giraffas', 'diningOut'], ['outback', 'diningOut'], ['spoleto', 'diningOut'],
+  ['china in box', 'diningOut'], ['madero', 'diningOut'],
+
+  ['pao de acucar', 'groceries'], ['carrefour', 'groceries'], ['assai', 'groceries'],
+  ['atacadao', 'groceries'], ['extra', 'groceries'], ['big bompreco', 'groceries'],
+  ['sonda', 'groceries'], ['zaffari', 'groceries'], ['angeloni', 'groceries'],
+  ['dia supermercado', 'groceries'], ['oxxo', 'groceries'],
+
+  ['99 pop', 'transport'], ['99app', 'transport'], ['cabify', 'transport'],
+  ['blablacar', 'transport'], ['buser', 'transport'], ['clickbus', 'transport'],
+  ['estapar', 'transport'], ['sem parar', 'transport'], ['conectcar', 'transport'],
+  ['veloe', 'transport'],
+
+  ['shell select', 'fuel'], ['posto ipiranga', 'fuel'], ['br mania', 'fuel'],
+  ['ale combustiveis', 'fuel'],
+
+  ['drogaria sao paulo', 'health'], ['pacheco', 'health'], ['pague menos', 'health'],
+  ['panvel', 'health'], ['araujo', 'health'], ['ultrafarma', 'health'],
+  ['smartfit', 'health'], ['smart fit', 'health'],
+
+  ['magazine luiza', 'shopping'], ['magalu', 'shopping'], ['americanas', 'shopping'],
+  ['casas bahia', 'shopping'], ['ponto frio', 'shopping'], ['renner', 'shopping'],
+  ['riachuelo', 'shopping'], ['c&a', 'shopping'], ['marisa', 'shopping'],
+  ['mercado livre', 'shopping'], ['shopee', 'shopping'], ['centauro', 'shopping'],
+
+  ['vivo', 'bills'], ['claro', 'bills'], ['tim celular', 'bills'], ['oi fibra', 'bills'],
+  ['enel', 'bills'], ['cpfl', 'bills'], ['sabesp', 'bills'], ['copel', 'bills'],
+  ['light servicos', 'bills'], ['porto seguro', 'bills'],
+
+  ['globoplay', 'subscriptions'], ['deezer', 'subscriptions'],
+
+  ['cvc viagens', 'travel'], ['decolar', 'travel'], ['azul linhas', 'travel'],
+  ['123milhas', 'travel'],
+
+  ['leroy merlin', 'home'], ['telhanorte', 'home'], ['tok stok', 'home'],
+  ['mobly', 'home'], ['madeira madeira', 'home'],
+
+  ['ingresso com', 'entertainment'], ['uci cinemas', 'entertainment'],
+  ['kinoplex', 'entertainment']
 ];
 
 /**
@@ -189,7 +234,29 @@ function endsAtBoundary(index, haystack) {
   return !isAlphanumeric(haystack[cursor]);
 }
 
-const PROCESSOR_PREFIXES = ['sq *', 'sq*', 'tst*', 'tst *', 'sp *', 'sp*', 'pos ', 'purchase '];
+const PROCESSOR_PREFIXES = ['pos ', 'purchase ', 'compra '];
+
+/**
+ * What a payment processor's prefix is worth once it is off the front.
+ *
+ * `XX*` at the start of a descriptor is a processor marker, not part of the
+ * shop's name, so it is stripped generically. A few are worth more than
+ * nothing, though: in "IFD*CEVAR ALIMENTOS LT" the only thing in the whole
+ * string that says the purchase was a takeaway is the `IFD`. Those expand to
+ * the brand instead of vanishing, and the ordinary brand table takes it from
+ * there.
+ */
+const PROCESSOR_BRANDS = {
+  ifd: 'ifood', ifood: 'ifood', ifd1: 'ifood',
+  rp: 'rappi', rappi: 'rappi',
+  ubr: 'uber', uber: 'uber',
+  99: '99 taxi', '99app': '99 taxi',
+  sq: '', tst: '', sp: '', mp: '', pag: '', pags: '', pp: '', ame: '',
+  stone: '', cielo: '', getnet: '', sumup: '', picpay: '', ebw: ''
+};
+
+/** "IFD*", "SQ *", "PAG*" — a short token welded to the name with a star. */
+const PROCESSOR_MARK = /^([a-z0-9]{1,6})\s*\*\s*/;
 
 /**
  * Lowercase, strip diacritics, collapse whitespace. Statement descriptors
@@ -198,6 +265,14 @@ const PROCESSOR_PREFIXES = ['sq *', 'sq*', 'tst*', 'tst *', 'sp *', 'sp*', 'pos 
  */
 export function normalize(input) {
   let text = fold(input);
+
+  const mark = PROCESSOR_MARK.exec(text);
+  if (mark) {
+    // An unknown processor is dropped; a known one leaves its brand behind.
+    const brand = PROCESSOR_BRANDS[mark[1]] ?? '';
+    text = `${brand} ${text.slice(mark[0].length)}`;
+  }
+
   for (const prefix of PROCESSOR_PREFIXES) {
     if (text.startsWith(prefix)) {
       text = text.slice(prefix.length);

@@ -172,7 +172,11 @@ It understands spoken money ("twelve fifty", "twenty five bucks", "$45.99",
 "two weeks ago", "last Friday", "July 12"), merchants ("at Blue Bottle",
 "from Ikea") and refunds ("got refunded 30 dollars from Zara").
 
-**The sentence parser is English-only.** You can set dictation to Portuguese
+**Merchant names are read in Portuguese as well as English.** *POSTO*,
+*DROGARIA*, *PADARIA*, *SUPERMERCADO*, *RESTAURANTE*, *ESTACIONAMENTO* and the
+big Brazilian chains all find their category, and the `IFD*` / `UBR*` prefixes
+payment processors staple on are understood rather than treated as part of the
+shop's name. **The sentence parser itself is still English-only.** You can set dictation to Portuguese
 in Settings and it will transcribe correctly, but *"Gastei 25 reais no
 Starbucks ontem"* will not be understood as 25 BRL at Starbucks yesterday. If
 you log in another language, turn off **Save confident entries straight away**
@@ -529,7 +533,7 @@ web/
     image.js             downscale + re-encode before sending
     notification-parser.js  reads your bank's alert (iOS 27 automation)
     money.js  dates.js  text.js  charts.js  csv.js  speech.js
-  tests/              178 tests, run by Node
+  tests/              184 tests, run by Node
 ```
 
 Run the tests on Windows, macOS or Linux with Node 20 or newer:

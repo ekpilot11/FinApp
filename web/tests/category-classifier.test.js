@@ -73,3 +73,56 @@ test('normalize strips processor prefixes', () => {
   assert.equal(normalize('SQ *Blue Bottle'), 'blue bottle');
   assert.equal(normalize('  Café   Corner  '), 'cafe corner');
 });
+
+// MARK: - Brazil
+//
+// Everything below came from real card notifications. Until these landed, the
+// classifier knew only English words and every one of them fell into "Other",
+// which made the Spending tab a single grey donut.
+
+test('a payment processor prefix is not part of the shop name', () => {
+  // "IFD*CEVAR ALIMENTOS LT" — the IFD is iFood's marker, and it is the only
+  // thing in the whole string that says the purchase was a takeaway.
+  assert.equal(classify('', 'IFD*CEVAR ALIMENTOS LT'), 'diningOut');
+  assert.equal(classify('', 'UBR*UBER TRIP'), 'transport');
+});
+
+test('an unknown processor prefix is dropped, not guessed at', () => {
+  // Mercado Pago says who took the payment, nothing about what was bought.
+  assert.equal(classify('', 'MP*LOJADOJOAO'), 'other');
+  assert.equal(normalize('MP*LOJADOJOAO'), 'lojadojoao');
+});
+
+test('a known processor leaves its brand behind for the brand table', () => {
+  assert.equal(normalize('IFD*CEVAR ALIMENTOS LT'), 'ifood cevar alimentos lt');
+});
+
+test('Portuguese merchant names find their category', () => {
+  const cases = [
+    ['POSTO IPIRANGA CENTRO', 'fuel'],
+    ['DROGARIA SAO PAULO 231', 'health'],
+    ['PADARIA RAO LTDA', 'groceries'],
+    ['SUPERMERCADO SONDA', 'groceries'],
+    ['RESTAURANTE DA ESQUINA', 'diningOut'],
+    ['CAFETERIA DO CENTRO', 'coffee'],
+    ['ESTACIONAMENTO CENTRAL', 'transport'],
+    ['FARMACIA POPULAR', 'health'],
+    ['LIVRARIA CULTURA', 'shopping'],
+    ['CINEMA ITAU', 'entertainment']
+  ];
+  for (const [merchant, expected] of cases) {
+    assert.equal(classify('', merchant), expected, merchant);
+  }
+});
+
+test('Brazilian chains are known by name', () => {
+  assert.equal(classify('', 'MAGAZINE LUIZA SA'), 'shopping');
+  assert.equal(classify('', 'ASSAI ATACADISTA'), 'groceries');
+  assert.equal(classify('', 'SMART FIT ACADEMIA'), 'health');
+  assert.equal(classify('', 'DROGARIA PACHECO'), 'health');
+});
+
+test('a Portuguese sentence still classifies', () => {
+  assert.equal(classify('almoço no restaurante'), 'diningOut');
+  assert.equal(classify('gasolina no posto'), 'fuel');
+});
