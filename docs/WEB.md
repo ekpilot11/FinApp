@@ -300,22 +300,38 @@ The answer is to stop opening anything at the moment of purchase. Let the
 automation collect the notifications, and hand the whole pile over the next
 time you open FinApp yourself.
 
+**Not `Set Variable` / `Get Variable`.** Those live for one run only and would
+drop the queue every time. iOS 27 added separate actions for storage that
+survives between runs — **Store Content**, **Get Stored Content** and **Delete
+Stored Content** — with a **Global Values** toggle that makes an item readable
+from other shortcuts. The queue needs that toggle on, because a second shortcut
+has to read it.
+
 Rebuild the automation as:
 
 1. **When I receive a notification from** your bank — filter as above.
 2. **URL Encode** → *Shortcut Input → Body*.
-3. **Get Variable** → your queue variable (create it the first time with
-   **Set Variable**; iOS 27's stored variables persist between runs).
-4. **Text**: the queue, then `&text=`, then the **URL Encoded Text**. This
-   appends today's purchase to the pile.
-5. **Set Variable** → store that combined text back into the queue.
+3. **Get Stored Content**, name `finapp-queue`, **Global** on. Empty on the
+   first run, which is fine.
+4. **Text** — one action containing three things in a row, no spaces between:
+   the **Stored Content** variable, the literal `&text=`, then the **URL
+   Encoded Text** variable.
+5. **Store Content** → the **Text** from step 4, under `finapp-queue`,
+   **Global** on. This overwrites the queue with itself plus today's purchase.
 
-Then make a **second shortcut**, and put *it* on your home screen in place of
-the FinApp icon:
+There is no `Open URLs` here at all, which is the point: nothing to fail while
+locked.
 
-1. **Get Variable** → the queue.
-2. **Open URLs** → `https://your-site/?add=1` followed by the queue variable.
-3. **Set Variable** → the queue, to an empty **Text** action.
+Then make a **second shortcut** — this is the one you tap — and put it on your
+home screen in place of the FinApp icon:
+
+1. **Get Stored Content** → `finapp-queue`, **Global** on.
+2. **Open URLs** → `https://your-site/?add=1` followed by the **Stored
+   Content** variable.
+3. **Delete Stored Content** → `finapp-queue`.
+
+An empty queue is harmless: the link is then just `?add=1`, which FinApp treats
+as an ordinary visit.
 
 Now nothing interrupts you at the till, nothing is lost while locked, and the
 whole backlog lands the moment you open FinApp. Order matters in the second
