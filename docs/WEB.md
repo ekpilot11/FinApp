@@ -222,7 +222,8 @@ Apple Cash.
 6. **Add a `Replace Text` action before `Open URLs`.** This step is not
    optional and it is the one everybody misses:
 
-   - **Find** `" "` — a single space
+   - Turn **Regular Expression** on
+   - **Find** `\s`
    - **Replace** `%20`
    - **Input** — *Shortcut Input → Body*
 
@@ -230,6 +231,12 @@ Apple Cash.
    pastes the Body into the address exactly as typed, and an address ends at
    the first space, so `Compra de R$ 10,80 APROVADA em Deltaexpresso…` arrives
    as `Compra`. FinApp spots that and says so, but the fix is here.
+
+   **Use `\s`, not a typed space.** A space is invisible in that field, so a
+   stray quote mark around it looks identical to a bare one and silently
+   matches nothing — you find out on your next real purchase. `\s` is visible,
+   and it also catches the line breaks some banks put in the message, which
+   break the address exactly the same way.
 
    If you can find a **URL Encode** action in your version, it does the same
    job in one step and handles more characters.

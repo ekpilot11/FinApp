@@ -263,11 +263,15 @@ function importReport(record, { dismissable }) {
         ${saw}
         ${truncated ? `<p class="hint hint--warn">Shortcuts put the notification straight
           into the address, and an address ends at the first space. Fix it in the
-          automation: add <strong>Replace Text</strong> before <strong>Open URLs</strong>
-          — find <code>" "</code> (one space), replace with <code>%20</code>, input
-          <strong>Shortcut Input → Body</strong> — then use the <em>result of Replace
-          Text</em> in the URL instead of Body. If you can find a <strong>URL
-          Encode</strong> action, that does the same job in one step.</p>` : ''}
+          automation: add a <strong>Replace Text</strong> action before
+          <strong>Open URLs</strong>, turn <strong>Regular Expression</strong> on, and
+          replace <code>\\s</code> with <code>%20</code> in <strong>Shortcut Input →
+          Body</strong>. Then put its <strong>Updated Text</strong> at the end of the
+          address, keeping <code>?add=1&amp;text=</code> in front of it.</p>
+        <p class="hint">Use <code>\\s</code> rather than a typed space: a space is
+          invisible in that field, so a stray quote mark around it looks identical and
+          silently matches nothing — and <code>\\s</code> also catches the line breaks
+          some banks put in the message, which break the address the same way.</p>` : ''}
         <div class="row-actions">
           <button type="button" class="button button--primary" data-action="prompt-voice">Say it</button>
           <button type="button" class="button" data-action="prompt-type">Type it</button>
