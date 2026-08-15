@@ -235,7 +235,12 @@ Apple Cash.
    job in one step and handles more characters.
 
 7. Delete the word `NOTIFICATION`, and with the cursor there choose **Select
-   Variable → Replace Text** (the *result* of step 6 — not Body itself). If
+   Variable → Updated Text** (the *result* of step 6 — not Body itself).
+
+   **Keep the rest of the address.** The field must read
+   `https://your-site/?add=1&text=` followed by the variable. Replacing the
+   whole field with the variable alone is the easy slip: Shortcuts then tries
+   to open the notification text as though it were a web address. If
    your bank puts the amount in the subtitle, pass those pieces instead —
    FinApp also accepts `?add=1&title=…&subtitle=…&body=…`.
 8. **Done**.
@@ -458,7 +463,7 @@ web/
     image.js             downscale + re-encode before sending
     notification-parser.js  reads your bank's alert (iOS 27 automation)
     money.js  dates.js  text.js  charts.js  csv.js  speech.js
-  tests/              174 tests, run by Node
+  tests/              175 tests, run by Node
 ```
 
 Run the tests on Windows, macOS or Linux with Node 20 or newer:

@@ -153,7 +153,9 @@ function handleImportRequest() {
   // login code. Recorded so the automation's filter can be tightened, but not
   // dressed up as a purchase you failed to log.
   if (fields.rejected) {
-    const outcome = { notAPurchase: 'ignored', declined: 'declined' }[fields.reason] ?? 'unreadable';
+    const outcome = {
+      notAPurchase: 'ignored', declined: 'declined', empty: 'empty'
+    }[fields.reason] ?? 'unreadable';
     recordImport({ ...received, outcome });
     return;
   }
@@ -221,6 +223,21 @@ function importReport(record, { dismissable }) {
         <p class="hint">If it <em>was</em> a purchase, tell me what it said and I will teach
           FinApp to read it. If notifications like this keep arriving, add a filter to the
           automation so only purchase alerts trigger it.</p>
+      </section>`;
+  }
+
+  if (record.outcome === 'empty') {
+    return `
+      <section class="card">
+        ${heading(`The automation ran at ${esc(time)}`)}
+        <p>It opened FinApp but carried no message, so there was nothing to log.</p>
+        <p class="hint">If you tapped <strong>play</strong> in Shortcuts to test it, that is
+          exactly what should happen — there is no notification to read, so Body is empty.
+          It proves the automation reaches FinApp. Make a small real purchase to see it
+          carry one.</p>
+        <p class="hint">If this happened on a <em>real</em> purchase, check that the
+          <strong>Open URLs</strong> field still holds the full address with the variable
+          at the end — not the variable on its own.</p>
       </section>`;
   }
 

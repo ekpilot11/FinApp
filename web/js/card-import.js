@@ -225,7 +225,14 @@ function atQuotedTime(time, now) {
  */
 export function expenseFromNotification(params, context) {
   const text = notificationText(params);
-  if (!text) return null;
+  if (!text) {
+    // A notification slot that arrived empty is a different thing from an
+    // Apple Pay link with no amount, and the commonest cause is the play
+    // button: testing an automation by hand runs it with no notification to
+    // read, so the text is blank through no fault of the setup.
+    const asked = ['text', 'title', 'subtitle', 'body'].some((key) => params.has(key));
+    return asked ? { rejected: true, reason: 'empty', text: '' } : null;
+  }
 
   const reading = readNotification(text, { defaultCurrency: context.defaultCurrency });
   if (!reading.ok) return { rejected: true, reason: reading.reason, text };

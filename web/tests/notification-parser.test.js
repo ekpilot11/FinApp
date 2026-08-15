@@ -342,6 +342,20 @@ describe('the URL bridge', () => {
     assert.equal(params.get('text'), 'Compra R$ 12,90 em PADARIA');
   });
 
+  it('tells an empty notification apart from an Apple Pay link', () => {
+    // Tapping play in Shortcuts runs the automation with no notification, so
+    // Body is empty. That is a working automation, not a broken one.
+    const empty = expenseFromParams(importParams(`${site}?add=1&text=`),
+      { defaultCurrency: 'BRL', now: new Date() });
+    assert.equal(empty.rejected, true);
+    assert.equal(empty.reason, 'empty');
+
+    // Whereas an Apple Pay link with no amount is the old, different story.
+    const applePay = expenseFromParams(importParams(`${site}?add=1&amount=&merchant=`),
+      { defaultCurrency: 'BRL', now: new Date() });
+    assert.equal(applePay, null);
+  });
+
   it('reports a non-purchase rather than logging one', () => {
     const params = importParams(`${site}?add=1&text=${encodeURIComponent('Seu saldo é de R$ 4.812,00')}`);
     const fields = expenseFromParams(params, { defaultCurrency: 'BRL', now: new Date() });
