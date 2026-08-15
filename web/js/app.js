@@ -680,11 +680,7 @@ function settingsScreen() {
   const codes = [...new Set([...currenciesUsed(state.expenses), ...COMMON_CURRENCIES])];
   const here = `${window.location.origin}${window.location.pathname}`;
   const canonical = canonicalSiteURL(window.location.href);
-  const shortcutURL = `${canonical ?? here}?add=1&amount=AMOUNT&merchant=MERCHANT`;
-  // `text` last on purpose: a notification body can contain an ampersand, and
-  // anything after it that is not a parameter FinApp knows is treated as more
-  // text rather than cutting the merchant off.
-  const notificationURL = `${canonical ?? here}?add=1&text=NOTIFICATION`;
+  const automationURL = `${canonical ?? here}?add=1`;
 
   // A per-deploy preview link gets its own storage, so a ledger built here is
   // invisible from the real address. Say so at the top of Settings, before
@@ -692,10 +688,8 @@ function settingsScreen() {
   const previewWarning = canonical ? `
     <section class="card">
       <h2 class="card__title">Wrong address</h2>
-      <p class="hint hint--warn">You are on a preview link that belongs to one
-        particular deploy. Expenses are stored per address, so anything logged
-        here will be missing when you open the real one. Use this instead, and
-        add <em>that</em> to your home screen:</p>
+      <p class="hint hint--warn">This is a preview link for one deploy, with its own
+        separate storage. Use the real address and add <em>that</em> to your home screen.</p>
       <code class="code">${esc(canonical)}</code>
       <div class="row-actions">
         <a class="button button--primary" href="${esc(canonical)}">Go there now</a>
@@ -719,9 +713,7 @@ function settingsScreen() {
                placeholder="No limit"
                value="${settings.monthlyBudget > 0 ? decimalStringFromCents(settings.monthlyBudget) : ''}">
       </label>
-      <p class="hint">FinApp never converts between currencies. Totals only add up rows
-        that already share one, because a total built from a guessed rate is wrong in a
-        way you cannot see.</p>
+      <p class="hint">Totals never convert between currencies.</p>
     </section>
 
     <section class="card">
@@ -739,63 +731,34 @@ function settingsScreen() {
         <input type="checkbox" data-input="autoSaveConfident"
                ${settings.autoSaveConfident ? 'checked' : ''}>
       </label>
-      <p class="hint">Anything the parser is unsure of opens the editor instead.</p>
-      <p class="hint hint--warn">The sentence parser understands <strong>English</strong>
-        phrasing only. Dictating in another language transcribes fine, but the amount,
-        date and merchant will usually need correcting — so switch auto-save off if you
-        log in one.</p>
-      <p class="hint">Speech is transcribed by the browser's own service (on iPhone, by
-        Apple), so audio leaves the device. Everything after that — parsing, storing,
-        totalling — happens here.</p>
+      <p class="hint">Spoken sentences are understood in <strong>English</strong> only;
+        anything unclear opens the editor. Audio goes to Apple to be transcribed.</p>
     </section>
 
     <section class="card">
       <h2 class="card__title">Screenshots</h2>
-      <p class="hint">Your bank's notifications pile up on the lock screen. Screenshot them,
-        tap <strong>Add from screenshot</strong> on the Log tab, and every purchase in the
-        picture comes back as a list you check over before anything is saved.</p>
       <label class="field">
         <span>Anthropic API key</span>
         <input type="password" data-input="anthropicKey" autocomplete="off"
                spellcheck="false" placeholder="sk-ant-…" value="${esc(state.apiKey)}">
       </label>
       <p class="hint">${state.apiKey
-        ? 'Key saved in this browser. Clear the field to remove it.'
-        : 'Get one at <code>console.anthropic.com</code> → API keys. Until you paste it here, '
-          + 'the screenshot button does nothing.'}</p>
-      <p class="hint hint--warn">This is the one part of FinApp that leaves your phone. The
-        picture — the whole picture, whatever else is on that screen — is sent to Anthropic to
-        be read. Typing and dictation stay local as before. Reading one screenshot costs a few
-        cents on your own Anthropic account.</p>
-      <p class="hint">The key is stored on its own and is deliberately left out of
-        <strong>Download backup</strong>, so a backup file stays safe to send to yourself.</p>
+        ? 'Saved in this browser, and kept out of backups. Clear the field to remove it.'
+        : 'From <code>console.anthropic.com</code> → API keys. Without it, '
+          + '<strong>Add from screenshot</strong> does nothing.'}</p>
+      <p class="hint hint--warn">Screenshots are sent to Anthropic to be read — the only
+        thing that leaves your phone. A few cents each, on your own account.</p>
     </section>
 
     <section class="card">
-      <h2 class="card__title">Card automations</h2>
-
-      <p class="hint"><strong>From your bank's notification</strong> — needs iOS 27.
-        Shortcuts → Automation → <strong>When I receive a notification from</strong> → your
-        bank's app → <strong>Open URLs</strong> with this address, replacing
-        <code>NOTIFICATION</code> with the <strong>Body</strong> of Shortcut Input:</p>
-      <code class="code" id="notification-url">${esc(notificationURL)}</code>
-      <div class="row-actions">
-        <button type="button" class="button" data-action="copy-notification-url">Copy address</button>
-      </div>
-      <p class="hint">This is the one that carries the real amount and shop name. FinApp
-        reads the message, skips anything that is not a purchase, and files it.</p>
-
-      <p class="hint" style="margin-top:18px"><strong>From Apple Pay</strong> — a
-        <strong>Transaction</strong> automation opening this address instead. Only Apple Card
-        and Apple Cash fill in the amount; every other card sends it empty, so this one
-        mostly just tells you a card was used:</p>
-      <code class="code" id="shortcut-url">${esc(shortcutURL)}</code>
+      <h2 class="card__title">Automation address</h2>
+      <code class="code" id="automation-url">${esc(automationURL)}</code>
       <div class="row-actions">
         <button type="button" class="button" data-action="copy-url">Copy address</button>
       </div>
-
-      <p class="hint">Running both is fine — one purchase gets the same id from either, so
-        it is logged once. Full walkthrough in <code>docs/WEB.md</code>.</p>
+      <p class="hint">For the Shortcuts automation that reads your bank's notifications.
+        Append each message as <code>&amp;text=…</code>. Walkthrough in
+        <code>docs/WEB.md</code>.</p>
     </section>
 
     ${importReport(loadLastImport(), { dismissable: false })}
@@ -803,17 +766,11 @@ function settingsScreen() {
     <section class="card">
       <h2 class="card__title">Your data</h2>
       <p class="hint"><strong>${state.expenses.length}
-        expense${state.expenses.length === 1 ? '' : 's'} here</strong>, and you are
-        ${isStandalone()
-          ? 'running FinApp <strong>from the home screen</strong>'
-          : 'running FinApp <strong>in the browser</strong>'}.</p>
-      <p class="hint hint--warn">iOS can keep these two as separate stores. If a
-        purchase you logged one way is missing from the other, that is why — the
-        data is not lost, it is in the other one. Open both, see which has the
-        higher count, and keep using that one. Use <strong>Download backup</strong>
-        here and <strong>Restore backup</strong> there to bring them together.</p>
-      <p class="hint">Nothing is uploaded anywhere. Clearing website data erases
-        it all, so keep a backup.</p>
+        expense${state.expenses.length === 1 ? '' : 's'}</strong> here, ${isStandalone()
+          ? 'on the <strong>home screen</strong> store'
+          : 'in the <strong>browser</strong> store'}.</p>
+      <p class="hint hint--warn">iOS keeps those two separate. A purchase missing from one
+        is in the other — bring them together with backup and restore.</p>
       <div class="row-actions row-actions--wrap">
         <button type="button" class="button" data-action="export-csv">Export CSV</button>
         <button type="button" class="button" data-action="export-backup">Download backup</button>
@@ -825,8 +782,8 @@ function settingsScreen() {
 
     <section class="card">
       <h2 class="card__title">Install it</h2>
-      <p class="hint">In Safari on your iPhone: <strong>Share → Add to Home Screen</strong>.
-        It then opens full-screen with its own icon, and works offline.</p>
+      <p class="hint">Safari → <strong>Share → Add to Home Screen</strong>. Opens
+        full-screen, works offline.</p>
     </section>
   `;
 }
@@ -1209,9 +1166,6 @@ function onClick(event) {
     case 'copy-url':
       copyShortcutURL();
       break;
-    case 'copy-notification-url':
-      copyShortcutURL('notification-url');
-      break;
     case 'export-csv':
       download(`FinApp-${fileStamp()}.csv`, toCSV(state.expenses), 'text/csv');
       break;
@@ -1525,8 +1479,8 @@ function eraseEverything() {
   showToast('Everything erased.');
 }
 
-async function copyShortcutURL(id = 'shortcut-url') {
-  const text = document.getElementById(id)?.textContent ?? '';
+async function copyShortcutURL() {
+  const text = document.getElementById('automation-url')?.textContent ?? '';
   try {
     await navigator.clipboard.writeText(text);
     showToast('Address copied.');

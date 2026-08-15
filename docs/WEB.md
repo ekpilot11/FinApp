@@ -204,8 +204,9 @@ That is the piece this project was missing. Your bank's alert already contains
 the amount and the shop; Apple Wallet never did for anything but Apple Card and
 Apple Cash.
 
-1. **FinApp → Settings → Card automations** → **Copy address** under *From your
-   bank's notification*. You get:
+1. **FinApp → Settings → Automation address** → **Copy address**. You get your
+   site's address with `?add=1` on the end; the notification goes after it as
+   `&text=…`:
 
    ```
    https://your-site/?add=1&text=NOTIFICATION
@@ -360,7 +361,8 @@ transaction history; anything claiming otherwise is reading your bank, not your
 Wallet.
 
 What iOS offers is a **Transaction** automation, which fires the moment a card
-in Wallet is used and can open a URL.
+in Wallet is used and can open a URL. FinApp still accepts these links, but
+Settings no longer offers the address — section 4a replaces this entirely.
 
 Be warned: **iOS only fills in the amount for Apple Card and Apple Cash.** Every
 other card — including every Brazilian bank card — fires the automation with an
@@ -370,7 +372,9 @@ more. Section 4a is the one that works.
 
 ### Set it up
 
-1. Open **FinApp → Settings** and tap **Copy address**. You get something like:
+1. Take your site's address from **Settings → Automation address** and add the
+   two placeholders by hand — Settings no longer offers this form, because it
+   never worked for anything but Apple Card:
 
    ```
    https://ekpilot11.github.io/FinApp/?add=1&amount=AMOUNT&merchant=MERCHANT
