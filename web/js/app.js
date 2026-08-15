@@ -262,16 +262,16 @@ function importReport(record, { dismissable }) {
           : 'It looked like a purchase, but no amount could be found in it.'}</p>
         ${saw}
         ${truncated ? `<p class="hint hint--warn">Shortcuts put the notification straight
-          into the address, and an address ends at the first space. Fix it in the
-          automation: add a <strong>Replace Text</strong> action before
-          <strong>Open URLs</strong>, turn <strong>Regular Expression</strong> on, and
-          replace <code>\\s</code> with <code>%20</code> in <strong>Shortcut Input →
-          Body</strong>. Then put its <strong>Updated Text</strong> at the end of the
-          address, keeping <code>?add=1&amp;text=</code> in front of it.</p>
-        <p class="hint">Use <code>\\s</code> rather than a typed space: a space is
-          invisible in that field, so a stray quote mark around it looks identical and
-          silently matches nothing — and <code>\\s</code> also catches the line breaks
-          some banks put in the message, which break the address the same way.</p>` : ''}
+          into the address, and an address ends at the first space. Add a
+          <strong>URL Encode</strong> action before <strong>Open URLs</strong>, set to
+          <strong>Encode</strong> the <strong>Body</strong>, then put its
+          <strong>URL Encoded Text</strong> at the end of the address — keeping
+          <code>?add=1&amp;text=</code> in front of it.</p>
+        <p class="hint">If your version has no URL Encode action, a
+          <strong>Replace Text</strong> with <strong>Regular Expression</strong> on,
+          replacing <code>\\s</code> with <code>%20</code>, does the spaces and line
+          breaks. URL Encode is better where you have it: it also handles the
+          <code>&amp;</code> in a name like “Bar &amp; Grill”.</p>` : ''}
         <div class="row-actions">
           <button type="button" class="button button--primary" data-action="prompt-voice">Say it</button>
           <button type="button" class="button" data-action="prompt-type">Type it</button>

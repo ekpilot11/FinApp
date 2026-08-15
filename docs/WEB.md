@@ -219,30 +219,28 @@ Apple Cash.
    make a second automation if you want both spelled out.
 4. Choose **Run Immediately**.
 5. Add the action **Open URLs** and paste the address.
-6. **Add a `Replace Text` action before `Open URLs`.** This step is not
-   optional and it is the one everybody misses:
+6. **Add a `URL Encode` action before `Open URLs`.** This step is not optional
+   and it is the one everybody misses:
 
-   - Turn **Regular Expression** on
-   - **Find** `\s`
-   - **Replace** `%20`
-   - **Input** — *Shortcut Input → Body*
+   - Action: **URL Encode**, mode **Encode**
+   - Input: *Shortcut Input → Body*
 
    Without it the automation looks perfect and delivers one word. Shortcuts
    pastes the Body into the address exactly as typed, and an address ends at
    the first space, so `Compra de R$ 10,80 APROVADA em Deltaexpresso…` arrives
    as `Compra`. FinApp spots that and says so, but the fix is here.
 
-   **Use `\s`, not a typed space.** A space is invisible in that field, so a
-   stray quote mark around it looks identical to a bare one and silently
-   matches nothing — you find out on your next real purchase. `\s` is visible,
-   and it also catches the line breaks some banks put in the message, which
-   break the address exactly the same way.
+   URL Encode also handles the two things that break an address more quietly:
+   a line break, which some banks put in the message, and an `&` in a shop
+   name like "Bar & Grill".
 
-   If you can find a **URL Encode** action in your version, it does the same
-   job in one step and handles more characters.
+   *If your version has no URL Encode action*, use **Replace Text** with
+   **Regular Expression** on, replacing `\s` with `%20`. Use `\s` rather than
+   a typed space — a space is invisible in that field, so a stray quote mark
+   around it looks identical to a bare one and silently matches nothing.
 
 7. Delete the word `NOTIFICATION`, and with the cursor there choose **Select
-   Variable → Updated Text** (the *result* of step 6 — not Body itself).
+   Variable → URL Encoded Text** (the *result* of step 6 — not Body itself).
 
    **Keep the rest of the address.** The field must read
    `https://your-site/?add=1&text=` followed by the variable. Replacing the
