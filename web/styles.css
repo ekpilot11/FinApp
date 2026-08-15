@@ -421,6 +421,15 @@ body.sheet-open { overflow: hidden; }
 }
 .chip-option input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+/* MARK: - Caught-up queue */
+
+.queue { list-style: none; margin: 10px 0 0; padding: 0; font-size: 13px; }
+.queue li { padding: 7px 0; }
+.queue li + li { border-top: 1px solid var(--line); }
+.queue strong { display: block; }
+.queue span { color: var(--ink-soft); }
+.queue--skipped strong { color: var(--warn); }
+
 /* MARK: - Screenshot review */
 
 .reviews { list-style: none; margin: 12px 0 0; padding: 0; }

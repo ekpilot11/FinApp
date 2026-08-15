@@ -51,7 +51,7 @@ notifications and have Anthropic read every purchase out of it at once**.
 
 ```bash
 cd web
-npm test          # 175 tests, no packages to install
+npm test          # 178 tests, no packages to install
 npx http-server . # then open http://localhost:8080
 ```
 

@@ -7,7 +7,8 @@
 import { CATEGORIES, categoryIcon, categoryName, source as sourceInfo } from './categories.js';
 import { categoryDonut, dailyBars, progressBar } from './charts.js';
 import {
-  canonicalSiteURL, expenseFromParams, importParams, notificationText
+  canonicalSiteURL, expenseFromParams, expenseFromText, importParams,
+  notificationText, notificationTexts
 } from './card-import.js';
 import { fileStamp, toCSV } from './csv.js';
 import {
@@ -140,6 +141,13 @@ function handleImportRequest() {
     text: notificationText(params)
   };
 
+  const queued = notificationTexts(params);
+  if (queued.length > 1) {
+    window.history.replaceState(null, '', `${window.location.pathname}#/log`);
+    handleQueue(queued, params, received);
+    return;
+  }
+
   const fields = expenseFromParams(params, { defaultCurrency: state.settings.currencyCode });
   // Strip the parameters either way, so a reload cannot log the purchase twice.
   window.history.replaceState(null, '', `${window.location.pathname}#/log`);
@@ -179,6 +187,52 @@ function handleImportRequest() {
     outcome: result.merged ? 'duplicate' : 'logged',
     stored: format(result.row.amount, result.row.currencyCode)
   });
+}
+
+/**
+ * A backlog of notifications, arriving together.
+ *
+ * These were collected while the phone was locked, so none of them can open an
+ * editor and wait for an answer — by the time you see this, the purchases are
+ * hours old and there may be a dozen. Everything readable is filed; anything
+ * short of a full reading is filed anyway but left unreviewed, so the History
+ * badge brings it back rather than the row vanishing quietly.
+ */
+function handleQueue(texts, params, received) {
+  const context = { defaultCurrency: state.settings.currencyCode };
+  const lines = [];
+  let logged = 0;
+  let merged = 0;
+
+  for (const text of texts) {
+    const fields = expenseFromText(text, params, context);
+
+    if (!fields || fields.rejected) {
+      const why = {
+        declined: 'declined by the bank',
+        notAPurchase: 'not a purchase',
+        empty: 'empty'
+      }[fields?.reason] ?? 'no amount could be read';
+      lines.push({ text, outcome: why, kept: false });
+      continue;
+    }
+
+    // A queued row is never sure enough to count as reviewed: nobody saw it.
+    const result = insert(makeExpense({ ...fields, isReviewed: false }), state.expenses);
+    state.expenses = result.expenses;
+    if (result.merged) merged += 1;
+    else logged += 1;
+    lines.push({
+      text,
+      outcome: result.merged
+        ? 'already had it'
+        : `logged ${format(result.row.amount, result.row.currencyCode)}`,
+      kept: !result.merged
+    });
+  }
+
+  persistExpenses();
+  recordImport({ ...received, outcome: 'queue', lines, logged, merged, text: '' });
 }
 
 function recordImport(record) {
@@ -223,6 +277,26 @@ function importReport(record, { dismissable }) {
         <p class="hint">If it <em>was</em> a purchase, tell me what it said and I will teach
           FinApp to read it. If notifications like this keep arriving, add a filter to the
           automation so only purchase alerts trigger it.</p>
+      </section>`;
+  }
+
+  if (record.outcome === 'queue') {
+    const rows = record.lines ?? [];
+    return `
+      <section class="card">
+        ${heading(`${rows.length} notification${rows.length === 1 ? '' : 's'} caught up`
+          + ` at ${esc(time)}`)}
+        <p><strong>${record.logged} logged${
+          record.merged ? `, ${record.merged} already had` : ''
+        }${rows.length - record.logged - record.merged > 0
+          ? `, ${rows.length - record.logged - record.merged} skipped` : ''}.</strong></p>
+        <p class="hint">Collected while your phone was locked. They are marked unreviewed —
+          the badge on History shows which still want a look.</p>
+        <ul class="queue">${rows.map((row) => `
+          <li class="${row.kept ? '' : 'queue--skipped'}">
+            <strong>${esc(row.outcome)}</strong>
+            <span>${esc(row.text.slice(0, 90))}</span>
+          </li>`).join('')}</ul>
       </section>`;
   }
 

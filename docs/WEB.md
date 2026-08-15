@@ -288,6 +288,51 @@ more text — but only if nothing real follows.
 **Running both automations is fine.** One purchase produces the same
 fingerprint from either, so the ledger merges them and counts it once.
 
+### When your phone is locked
+
+`Open URLs` fails on a locked phone — *"Safari couldn't be opened because the
+iPhone is locked."* That is not something FinApp can work around: a web page
+only runs while it is open, and iOS will not open a browser behind the lock
+screen. Most purchases happen exactly that way, card tapped and phone
+pocketed.
+
+The answer is to stop opening anything at the moment of purchase. Let the
+automation collect the notifications, and hand the whole pile over the next
+time you open FinApp yourself.
+
+Rebuild the automation as:
+
+1. **When I receive a notification from** your bank — filter as above.
+2. **URL Encode** → *Shortcut Input → Body*.
+3. **Get Variable** → your queue variable (create it the first time with
+   **Set Variable**; iOS 27's stored variables persist between runs).
+4. **Text**: the queue, then `&text=`, then the **URL Encoded Text**. This
+   appends today's purchase to the pile.
+5. **Set Variable** → store that combined text back into the queue.
+
+Then make a **second shortcut**, and put *it* on your home screen in place of
+the FinApp icon:
+
+1. **Get Variable** → the queue.
+2. **Open URLs** → `https://your-site/?add=1` followed by the queue variable.
+3. **Set Variable** → the queue, to an empty **Text** action.
+
+Now nothing interrupts you at the till, nothing is lost while locked, and the
+whole backlog lands the moment you open FinApp. Order matters in the second
+shortcut: clearing the queue *after* `Open URLs` means a failed open leaves the
+pile intact for next time.
+
+FinApp accepts any number of `&text=` pieces in one link. It reads each by the
+same path as a single one, files what it can, and shows a summary of what it
+did with every message — including the ones it skipped and why. Everything
+from a backlog is marked **unreviewed**, because nobody saw it arrive, so the
+badge on History tells you what still wants a look. Sending the same backlog
+twice is harmless: the fingerprints match and the rows merge.
+
+If that is more Shortcuts than you want to build, the screenshot route in
+section 5 covers the same ground — the notifications are still sitting on your
+lock screen.
+
 ### 4b. From Apple Pay
 
 **No app or website can read Apple Wallet.** Apple publishes no API for
@@ -468,7 +513,7 @@ web/
     image.js             downscale + re-encode before sending
     notification-parser.js  reads your bank's alert (iOS 27 automation)
     money.js  dates.js  text.js  charts.js  csv.js  speech.js
-  tests/              175 tests, run by Node
+  tests/              178 tests, run by Node
 ```
 
 Run the tests on Windows, macOS or Linux with Node 20 or newer:

@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { looksTruncated, readNotification } from '../js/notification-parser.js';
-import { expenseFromParams, importParams, notificationText } from '../js/card-import.js';
+import {
+  expenseFromParams, expenseFromText, importParams, notificationText, notificationTexts
+} from '../js/card-import.js';
 
 const read = (text, currency = 'BRL') => readNotification(text, { defaultCurrency: currency });
 
@@ -340,6 +342,46 @@ describe('the URL bridge', () => {
     const params = importParams(`${site}?add=1&text=Compra R$ 12,90 em PADARIA&id=abc123`);
     assert.equal(params.get('id'), 'abc123');
     assert.equal(params.get('text'), 'Compra R$ 12,90 em PADARIA');
+  });
+
+  it('carries a whole backlog in one link', () => {
+    // What the automation hands over after the phone has been locked all
+    // afternoon: everything it could not deliver at the time.
+    const texts = [
+      'Compra de R$ 33,50 APROVADA em Montana Viracopos Camp, às 21:02',
+      'Compra de R$ 10,80 APROVADA em Deltaexpresso, às 07:48',
+      'Compra de R$ 87,20 APROVADA em SUPERMERCADO PAGUE MENOS, às 10:15'
+    ];
+    const url = `${site}?add=1${texts.map((t) => `&text=${encodeURIComponent(t)}`).join('')}`;
+    const params = importParams(url);
+
+    const all = notificationTexts(params);
+    assert.equal(all.length, 3);
+
+    const amounts = all.map((text) =>
+      expenseFromText(text, params, { defaultCurrency: 'BRL', now: new Date() }).amount);
+    assert.deepEqual(amounts, [3350, 1080, 8720]);
+  });
+
+  it('reads each queued notification by the same path as a lone one', () => {
+    const text = 'Compra de R$ 33,50 APROVADA em Montana Viracopos Camp, às 21:02';
+    const context = { defaultCurrency: 'BRL', now: new Date(2026, 7, 15, 22, 0) };
+
+    const alone = expenseFromParams(
+      importParams(`${site}?add=1&text=${encodeURIComponent(text)}`), context);
+    const queued = expenseFromText(text,
+      importParams(`${site}?add=1&text=a&text=${encodeURIComponent(text)}`), context);
+
+    assert.equal(alone.amount, queued.amount);
+    assert.equal(alone.merchant, queued.merchant);
+    assert.deepEqual(alone.date, queued.date);
+    // Same fingerprint, so a purchase delivered twice is still one row.
+    assert.equal(alone.externalID, queued.externalID);
+  });
+
+  it('keeps a single notification on the single-purchase path', () => {
+    const params = importParams(`${site}?add=1&text=${encodeURIComponent('Compra R$ 5,00 em X')}`);
+    assert.equal(notificationTexts(params).length, 1);
   });
 
   it('tells an empty notification apart from an Apple Pay link', () => {

@@ -147,13 +147,28 @@ function withRawText(params, query) {
  * so all three are accepted and joined in reading order.
  */
 export function notificationText(params) {
-  const direct = (params.get('text') ?? '').trim();
-  if (direct) return direct;
+  return notificationTexts(params)[0] ?? '';
+}
 
-  return ['title', 'subtitle', 'body']
+/**
+ * Every notification a single link carries.
+ *
+ * More than one because of the locked phone. iOS refuses to open Safari while
+ * the phone is locked, and a web page that cannot open cannot log anything —
+ * so a purchase made at a card reader with the phone in your pocket is lost
+ * the moment the automation gives up. The way out is not to open anything: the
+ * automation keeps a list, and hands over everything it has the next time it
+ * gets a chance. `?add=1&text=…&text=…&text=…`
+ */
+export function notificationTexts(params) {
+  const many = params.getAll('text').map((value) => value.trim()).filter(Boolean);
+  if (many.length > 0) return many;
+
+  const joined = ['title', 'subtitle', 'body']
     .map((key) => (params.get(key) ?? '').trim())
     .filter(Boolean)
     .join(' — ');
+  return joined ? [joined] : [];
 }
 
 /**
@@ -224,7 +239,17 @@ function atQuotedTime(time, now) {
  *   caller can tell "not a purchase" from "could not read it".
  */
 export function expenseFromNotification(params, context) {
-  const text = notificationText(params);
+  return expenseFromText(notificationText(params), params, context);
+}
+
+/**
+ * One queued notification, read on its own terms.
+ *
+ * Split out from `expenseFromNotification` so a link carrying five of them
+ * runs the identical path five times — the batch is not a second
+ * implementation that can drift from the single case.
+ */
+export function expenseFromText(text, params, context) {
   if (!text) {
     // A notification slot that arrived empty is a different thing from an
     // Apple Pay link with no amount, and the commonest cause is the play
