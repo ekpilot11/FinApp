@@ -116,6 +116,12 @@ build command, publish directory `web`.
 
 ## 2. Put it on your home screen
 
+> **Using the notification automation (section 4a)?** Skip this. Your home-screen
+> icon should be the launcher shortcut described there, which opens FinApp in
+> Safari and empties the queue on the way. **Add to Home Screen** installs a
+> *separate* web app with its own storage — two ledgers, and the automation only
+> ever fills one of them.
+
 Do this in **Safari** — see the note on other browsers below.
 
 1. Open the address from step 1.

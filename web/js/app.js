@@ -779,12 +779,6 @@ function settingsScreen() {
       </div>
       <input type="file" id="restore-file" accept="application/json,.json" hidden>
     </section>
-
-    <section class="card">
-      <h2 class="card__title">Install it</h2>
-      <p class="hint">Safari → <strong>Share → Add to Home Screen</strong>. Opens
-        full-screen, works offline.</p>
-    </section>
   `;
 }
 
