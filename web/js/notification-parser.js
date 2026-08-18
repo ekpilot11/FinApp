@@ -50,11 +50,28 @@ const NOT_THE_PURCHASE = [
   'minimo', 'restante', 'available', 'balance', 'limit', 'remaining', 'statement'
 ];
 
-/** Signs this is money going out. */
+/**
+ * Signs this is money going out.
+ *
+ * Every transfer entry is *directional*. "Pix" on its own is not here and must
+ * never be: half of them are money arriving, and a received Pix filed as
+ * spending is a number you never spent sitting in your monthly total. Only
+ * "enviado", "realizado", "você enviou" and their kin count.
+ */
 const PURCHASE_WORDS = [
   'compra', 'aprovad', 'transacao', 'debito', 'credito', 'gasto', 'gastou',
   'pagamento aprovado', 'voce fez', 'foi utilizado', 'utilizado em',
-  'purchase', 'transaction', 'approved', 'charged', 'spent', 'was used', 'payment of'
+
+  // Pix and friends — the other half of a Brazilian account's spending, and
+  // silent on the card automation because no card is involved.
+  'pix enviado', 'pix realizado', 'pix efetuado', 'pix agendado',
+  'enviou um pix', 'fez um pix', 'voce enviou', 'enviado no valor',
+  'transferencia enviada', 'transferencia realizada', 'ted enviada',
+  'doc enviado', 'pagamento de boleto', 'boleto pago', 'pagamento realizado',
+  'pagamento efetuado', 'debito automatico',
+
+  'purchase', 'transaction', 'approved', 'charged', 'spent', 'was used',
+  'payment of', 'you sent', 'transfer sent'
 ];
 
 /**

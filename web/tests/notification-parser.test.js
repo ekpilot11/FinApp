@@ -176,6 +176,53 @@ describe('looksTruncated', () => {
   });
 });
 
+describe('readNotification — Pix and transfers', () => {
+  // The other half of a Brazilian account's spending, and invisible to the card
+  // automation because no card is involved.
+  it('logs a Pix you sent', () => {
+    const result = read('Pix enviado — Você enviou um Pix de R$ 150,00 para João Silva');
+    assert.equal(result.amount, 15000);
+    assert.equal(result.merchant, 'João Silva');
+    assert.ok(result.confidence >= 0.85);
+  });
+
+  it('reads the wordings banks actually use', () => {
+    assert.equal(read('Pix realizado com sucesso no valor de R$ 50,00 para MARIA SOUZA').amount, 5000);
+    assert.equal(read('Pix enviado: R$ 89,90 para PADARIA RAO').amount, 8990);
+    assert.equal(read('Transferência enviada de R$ 1.000,00 para CARLOS').amount, 100000);
+    assert.equal(read('Débito automático de R$ 89,90 - VIVO').amount, 8990);
+  });
+
+  it('refuses a Pix you received', () => {
+    // The one that must never slip through: money arriving is not money spent,
+    // and "Pix" alone is therefore not a spending word.
+    for (const text of [
+      'Você recebeu um Pix de R$ 200,00 de PEDRO',
+      'Pix recebido: R$ 200,00 de PEDRO ALVES'
+    ]) {
+      const result = read(text);
+      assert.equal(result.ok, false, text);
+      assert.equal(result.reason, 'notAPurchase');
+    }
+  });
+
+  it('treats a returned Pix as money coming back', () => {
+    assert.equal(read('Pix devolvido: R$ 50,00 de MARIA SOUZA').amount, -5000);
+  });
+
+  it('opens a Pix with no recipient for review rather than filing it nameless', () => {
+    const result = read('Pix enviado no valor de R$ 75,00');
+    assert.equal(result.amount, 7500);
+    assert.ok(result.confidence < 0.85, `confidence was ${result.confidence}`);
+  });
+
+  it('logs a boleto that was paid, refuses one that is merely due', () => {
+    // "boleto" alone reads as a reminder, so a payment has to say so.
+    assert.equal(read('Pagamento de boleto realizado: R$ 320,00 - ENEL').amount, 32000);
+    assert.equal(read('Seu boleto de R$ 320,00 vence amanhã').ok, false);
+  });
+});
+
 describe('readNotification — declines', () => {
   it('refuses a declined purchase, which reads as approved on every other test', () => {
     const text = REAL.body.replace('APROVADA', 'NÃO APROVADA');

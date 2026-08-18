@@ -282,6 +282,11 @@ message. What it does with it:
   said.
 - **Amount but no shop** → the editor opens pre-filled so you finish it, rather
   than filing a nameless row.
+- **Pix, TED, boletos and direct debits** → logged, as long as the message says
+  which way the money went. "Pix enviado", "transferência realizada",
+  "pagamento de boleto", "débito automático" are all spending; "Pix recebido"
+  and "você recebeu" are refused. The word *Pix* on its own is deliberately not
+  treated as spending — half of them are money arriving.
 - **Declined** ("não aprovada", "negada", "recusada") → refused. This one
   matters: a declined purchase says *compra* and *aprovada* in the same
   sentence, so it reads as a purchase on every other test.
@@ -298,6 +303,21 @@ more text — but only if nothing real follows.
 
 **Running both automations is fine.** One purchase produces the same
 fingerprint from either, so the ledger merges them and counts it once.
+
+### More than one bank
+
+The trigger takes several apps, but its filters apply to all of them — and
+filters combine with *and*, so one automation cannot match both
+`Title contains Compra` and `Title contains Pix`.
+
+Make a **second automation** instead: same four actions (URL Encode → Get
+Stored Content → Text → Store Content), same `finapp-queue`, different app and
+a `Pix` filter. Both pile into the one queue and the same launcher empties it.
+
+This is where the queue earns its keep a second time: an automation that only
+ever writes to storage costs nothing when it fires on something irrelevant, so
+a loose filter is cheap. FinApp sorts the purchases from the noise when the
+queue is flushed, and says what it skipped.
 
 ### When your phone is locked
 
@@ -543,7 +563,7 @@ web/
     image.js             downscale + re-encode before sending
     notification-parser.js  reads your bank's alert (iOS 27 automation)
     money.js  dates.js  text.js  charts.js  csv.js  speech.js
-  tests/              184 tests, run by Node
+  tests/              190 tests, run by Node
 ```
 
 Run the tests on Windows, macOS or Linux with Node 20 or newer:
