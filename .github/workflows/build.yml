@@ -1,0 +1,82 @@
+name: Build
+
+# Compiles the app and runs the tests on a GitHub-hosted Mac.
+#
+# This exists so the project can be developed from a Windows PC: you never need
+# a Mac to find out whether the code builds. Push a change, read the log.
+#
+# Free for public repositories. On a private repo, macOS runners bill against
+# your included minutes at 10x the Linux rate, so a few builds a day is fine
+# but a tight loop is not.
+
+# Path-filtered so a change to the web version does not spend macOS minutes.
+on:
+  push:
+    paths:
+      - 'FinApp/**'
+      - 'FinAppTests/**'
+      - 'FinApp.xcodeproj/**'
+      - '.github/workflows/build.yml'
+  pull_request:
+    paths:
+      - 'FinApp/**'
+      - 'FinAppTests/**'
+      - 'FinApp.xcodeproj/**'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: xcodebuild -version
+
+      # Compiles for the simulator without signing, which needs no Apple
+      # account of any kind. This surfaces every compile error in the project.
+      - name: Build
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project FinApp.xcodeproj \
+            -scheme FinApp \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+
+      # `xcodebuild test` needs one concrete simulator, and the exact device
+      # names on the runner image change over time. Pick whatever iPhone the
+      # runner actually has rather than hard-coding a model that may vanish.
+      - name: Choose a simulator
+        id: simulator
+        run: |
+          UDID=$(xcrun simctl list devices available --json | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          candidates = [
+              device["udid"]
+              for runtime, entries in devices.items() if "iOS" in runtime
+              for device in entries
+              if device.get("isAvailable") and "iPhone" in device["name"]
+          ]
+          print(candidates[-1] if candidates else "")
+          ')
+          if [ -z "$UDID" ]; then
+            echo "No iPhone simulator available on this runner." >&2
+            exit 1
+          fi
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: Test
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project FinApp.xcodeproj \
+            -scheme FinApp \
+            -destination "id=${{ steps.simulator.outputs.udid }}" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO

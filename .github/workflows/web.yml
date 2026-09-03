@@ -1,0 +1,107 @@
+name: Web
+
+# Tests the browser version and publishes it to GitHub Pages.
+#
+# Runs on Linux, needs no Mac and no Apple account, and takes about twenty
+# seconds. Once this is green and Pages is switched on, the app is live at
+# https://<your-username>.github.io/FinApp/ and you install it from Safari.
+
+on:
+  push:
+    paths:
+      - 'web/**'
+      - '.github/workflows/web.yml'
+  pull_request:
+    paths:
+      - 'web/**'
+      - '.github/workflows/web.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # No dependencies to install: the tests use Node's own test runner and
+      # the app itself is plain ES modules.
+      - name: Run tests
+        working-directory: web
+        run: npm test
+
+      # The date handling is local-time arithmetic, so it has to hold up
+      # somewhere that is not UTC and somewhere with a half-hour offset.
+      - name: Run tests in other time zones
+        working-directory: web
+        run: |
+          for zone in America/Sao_Paulo Pacific/Auckland Asia/Kolkata; do
+            echo "--- $zone"
+            TZ=$zone npm test
+          done
+
+  deploy:
+    name: Publish to GitHub Pages
+    needs: test
+    # Only the branches worth publishing. Add yours here if you work on another.
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/claude/'))
+    runs-on: ubuntu-latest
+
+    # Publishing is optional, so a failure here must not turn the whole run
+    # red. If Pages cannot be switched on, this job fails and the green tick
+    # you actually care about is still the Test job above.
+    continue-on-error: true
+
+    # One deployment at a time. Scoped to this job rather than the whole
+    # workflow: a top-level group would make the tests queue behind a
+    # deployment lock they have nothing to do with, and a run held that way
+    # can be cancelled before it is ever given a runner.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+
+    # Naming any permission sets every unlisted one to `none`, so `contents`
+    # has to be here or actions/checkout cannot read the repository.
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # `enablement` turns Pages on via the API when it has never been
+      # configured, so nobody has to visit Settings -> Pages by hand. Needs
+      # the `pages: write` permission below, which the deploy needs anyway.
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Explain a failed publish
+        if: failure()
+        run: |
+          echo "Publishing failed. Almost always one of two things:"
+          echo
+          echo "  1. Pages is not switched on yet."
+          echo "     Settings -> Pages -> Build and deployment -> Source: GitHub Actions"
+          echo
+          echo "  2. The repository is private on a free plan, where Pages is"
+          echo "     unavailable. Make it public, or host the web/ folder"
+          echo "     somewhere else — see docs/WEB.md, Option B."
+          echo
+          echo "The tests passed either way; nothing is wrong with the code."

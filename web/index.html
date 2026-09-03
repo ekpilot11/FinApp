@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <!-- viewport-fit=cover so the tab bar can sit under the home indicator. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>FinApp</title>
+  <meta name="description" content="A voice-driven expense tracker that runs entirely in your browser.">
+
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./styles.css">
+
+  <!-- Home-screen install on iOS reads these, not the manifest. -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FinApp">
+  <link rel="apple-touch-icon" href="./icons/icon-180.png">
+  <link rel="icon" href="./icons/icon-192.png" sizes="192x192">
+
+  <meta name="theme-color" content="#f7f7f9" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#101014" media="(prefers-color-scheme: dark)">
+</head>
+<body>
+  <div id="app">
+    <main id="screen" class="screen"></main>
+    <nav id="tabbar" class="tabbar" aria-label="Sections"></nav>
+  </div>
+
+  <!-- Outside #screen on purpose: choosing a photo backgrounds Safari, and an
+       input that got re-rendered in the meantime comes back without its
+       handler — so the screenshot is picked and nothing happens. -->
+  <input type="file" id="screenshot-file" accept="image/*" hidden>
+
+  <div id="sheet" class="sheet" hidden></div>
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <noscript>
+    <p style="padding:2rem;font:1rem system-ui">FinApp needs JavaScript — all of it runs in
+      your browser, so there is no server to fall back to.</p>
+  </noscript>
+
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>

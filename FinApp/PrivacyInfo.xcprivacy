@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Privacy manifest. Required by App Store review since May 2024 for any app
+  that touches a "required reason" API.
+
+  FinApp collects nothing and tracks nobody: expenses live in a local SwiftData
+  store, dictation prefers on-device transcription, and the only network call
+  is to a bank-sync server the user deploys and points the app at themselves.
+  Hence the empty collection and tracking sections.
+
+  UserDefaults is the one required-reason API in use — AppSettings keeps the
+  currency, budget and sync URL there. CA92.1 is the reason code for an app
+  reading and writing only its own defaults, which is all this does.
+-->
+<plist version="1.0">
+<dict>
+    <key>NSPrivacyTracking</key>
+    <false/>
+
+    <key>NSPrivacyTrackingDomains</key>
+    <array/>
+
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array/>
+
+    <key>NSPrivacyAccessedAPITypes</key>
+    <array>
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>CA92.1</string>
+            </array>
+        </dict>
+    </array>
+</dict>
+</plist>
